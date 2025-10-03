@@ -24,7 +24,6 @@ def prompt_list() -> bool:
         return False
     
     print("\n------ B I B L I O T E C A ------\n")
-    print(f"📖 Total de Livros: {total_books}\n")
 
     books: list[tuple] = database.list_books()
 
@@ -74,7 +73,6 @@ def prompt_search() -> None:
         return
     
     print(f"------- RESULTADOS DE BUSCA POR {term} - ({len(books)}) -------")
-    print(f"📖 Total de Livros: {len(books)}\n")
 
     for book in books:
         book_id: int = book[0]
