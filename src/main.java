@@ -32,7 +32,7 @@ public class Main
         }
         catch(SQLException e)
         {
-            System.out.println("Erro ao adicionar o livro: " + e.getMessage());
+            System.out.println("Erro ao gerar tabela: " + e.getMessage());
         }
 
         Scanner scan = new Scanner(System.in);
@@ -58,3 +58,4 @@ public class Main
         }
     }
 }
+
