@@ -5,7 +5,7 @@ public class database
     static Connection Connect_Database() throws SQLException{
         String url = "jdbc:mysql://localhost:3306/MYSQL";
         String user = "root";
-        String pass = "batata"; // ajuste com sua senha real
+        String pass = "batata";
 
         try {
             Connection conn = DriverManager.getConnection(url, user, pass);
@@ -71,3 +71,4 @@ public class database
 
     // }
 }
+
