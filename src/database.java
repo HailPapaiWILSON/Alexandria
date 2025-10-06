@@ -2,7 +2,8 @@ import java.sql.*;
 
 public class database
 {
-    static Connection Connect_Database() throws SQLException{
+    static Connection Connect_Database() throws SQLException
+    {
         String url = "jdbc:mysql://localhost:3306/MYSQL";
         String user = "root";
         String pass = "batata";
@@ -19,7 +20,8 @@ public class database
         );
     }
 
-    public static void Create_Tables() throws SQLException{
+    public static void Create_Tables() throws SQLException
+    {
         Connection conn = Connect_Database();
         Statement stmt = conn.createStatement();
 
@@ -39,7 +41,8 @@ public class database
         conn.close();
     }
 
-    public static void Add_Book(String title, String author, String url ) throws SQLException{
+    public static void Add_Book(String title, String author, String url ) throws SQLException
+    {
         Connection conn = Connect_Database();
         PreparedStatement ps = conn.prepareStatement(
                 """
@@ -56,19 +59,42 @@ public class database
         conn.close();
     }
 
-    public static int Book_Count() throws SQLException{
+    public static int Book_Count() throws SQLException
+    {
         Connection conn = Connect_Database();
         Statement stmt = conn.createStatement();
         ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM books;");
-        int count = rs.getInt(0);
+        int count = 0;
+        if(rs.next())
+        {
+            count = rs.getInt(1);
+        }
 
         conn.close();
+        rs.close();
+        stmt.close();
         return count;
     }
 
-    // static void List_Books() throws SQLException()
-    // {
+    public static void List_Books() throws SQLException
+    {
+        Connection conn = Connect_Database();
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT * FROM books ORDER BY created_at DESC"); 
 
-    // }
+        while(rs.next())
+        {
+            int id = rs.getInt("id");
+            String title = rs.getString("title");
+            String author = rs.getString("author");
+            String created_at = rs.getString("created_at");
+
+            System.out.println("[" + id + "]" + title);
+            System.out.println("     por " + author);
+            System.out.println("     Adicionado:" + created_at);
+            System.out.println("--------------------------------------------------");
+        }
+        conn.close();
+        rs.close();
+    }
 }
-
