@@ -2,29 +2,35 @@ import java.sql.*;
 
 public class database
 {
-    String DB_NAME = "alexandria.sql";
+    static Connection Connect_Database() throws SQLException{
+        String url = "jdbc:mysql://localhost:3306/MYSQL";
+        String user = "root";
+        String pass = "batata"; // ajuste com sua senha real
 
-    static Connection conect_database() throws SQLExeption()
-    {
-        return DriverManager.getConnection(
-            "jdbc:mysql://localhost:3306/alexandria.sql"
-        )
+        try {
+            Connection conn = DriverManager.getConnection(url, user, pass);
+            conn.close();
+        } catch (SQLException e) {
+            System.out.println("❌ Erro ao conectar:");
+            e.printStackTrace();
+        }
+        return(
+            DriverManager.getConnection(url, user, pass)
+        );
     }
 
-    static void create_tables() throws SQLExeption()
-    {
-        Connection conn = conect_database();
+    public static void Create_Tables() throws SQLException{
+        Connection conn = Connect_Database();
         Statement stmt = conn.createStatement();
 
     stmt.executeUpdate(
             """
         CREATE TABLE IF NOT EXISTS books (
-            id INT AUTO_INCREMENT,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(255) NOT NULL,                   
             author VARCHAR(255) NOT NULL,                  
-            url VARCHAR(255) NOT NULL,
-            description VARCHAR(255)                    
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            url VARCHAR(255) NOT NULL,                    
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
         );
@@ -33,25 +39,35 @@ public class database
         conn.close();
     }
 
-    static void Add_Book() throws SQLExeption()
-    {
-        Connection conn = conect_database();
-        PreparedStatement ps = conn.createStatement(
+    public static void Add_Book(String title, String author, String url ) throws SQLException{
+        Connection conn = Connect_Database();
+        PreparedStatement ps = conn.prepareStatement(
                 """
                 INSERT INTO books (title, author, url)
                 VALUES (?, ?, ?);
                 """);
-
-        while(rs.next())
-        {
-            int id = rs.getInt("id");
-            String title = rs.getString("title");
-            String author = rs.getString("author");
-            String url = rs.getString("url");
-        }
-        System.ou.println("Adicionado" + title + "por" + author + "a sua biblioteca");
+        ps.setString(1, title);
+        ps.setString(2, author);
+        ps.setString(3, url);
+        ps.executeUpdate(); 
+        System.out.println("Adicionado " + title + " por " + author + " a sua biblioteca");
 
         ps.close();
         conn.close();
     }
+
+    public static int Book_Count() throws SQLException{
+        Connection conn = Connect_Database();
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM books;");
+        int count = rs.getInt(0);
+
+        conn.close();
+        return count;
+    }
+
+    // static void List_Books() throws SQLException()
+    // {
+
+    // }
 }
