@@ -59,6 +59,14 @@ public class database
         conn.close();
     }
 
+    public static void Delete_Books()
+    {
+        Connection conn = Connect_Database();
+        Statement stmt = conn.createStatement();
+
+        
+    }
+
     public static int Book_Count() throws SQLException
     {
         Connection conn = Connect_Database();
@@ -98,3 +106,4 @@ public class database
         rs.close();
     }
 }
+
