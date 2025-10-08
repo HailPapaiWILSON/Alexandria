@@ -59,14 +59,15 @@ public class database
         conn.close();
     }
 
-    public static void Delete_Books()
+    public static void Delete_Books(int id) throws SQLException
     {
         Connection conn = Connect_Database();
         PreparedStatement ps = conn.prepereStatement("DELETE FROM books WHERE id = ?;");
 
-        ps.executeUpdate(  
-        );
-        
+        ps.setString(1, id);
+        ps.executeUpdate();
+        System.out.println("livro de id: " + id + " deletado com sucesso");
+
         ps.close();
         conn.close();
     }
@@ -110,5 +111,3 @@ public class database
         rs.close();
     }
 }
-
-
