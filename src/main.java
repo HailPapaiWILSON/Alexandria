@@ -24,7 +24,7 @@ public class Main
         }
     }
 
-    public static void Delete_Book()
+    public static void Prompt_Delete()
     {
         
     }
@@ -97,4 +97,5 @@ public class Main
     }
 
 }
+
 
