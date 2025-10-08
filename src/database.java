@@ -54,7 +54,7 @@ public class database
         ps.setString(3, url);
         ps.executeUpdate(); 
         System.out.println("Adicionado " + title + " por " + author + " a sua biblioteca");
-
+        
         ps.close();
         conn.close();
     }
@@ -62,9 +62,13 @@ public class database
     public static void Delete_Books()
     {
         Connection conn = Connect_Database();
-        Statement stmt = conn.createStatement();
+        PreparedStatement ps = conn.prepereStatement("DELETE FROM books WHERE id = ?;");
 
+        ps.executeUpdate(  
+        );
         
+        ps.close();
+        conn.close();
     }
 
     public static int Book_Count() throws SQLException
@@ -106,4 +110,5 @@ public class database
         rs.close();
     }
 }
+
 
