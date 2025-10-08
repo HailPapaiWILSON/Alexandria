@@ -26,7 +26,24 @@ public class Main
 
     public static void Prompt_Delete()
     {
-        
+        Scanner scan = new Scanner(System.in);
+        int BookId;
+
+        try
+        {
+            System.out.println("Insira o id Do Livro que Deseja Deletar");
+            try
+            {
+                BookId = scan.nextLine(BookId);
+            }catch(SQLException e)
+            {
+                System.out.println("Erro ao Deletar Livro: " + e.getMessage());
+            }
+
+        }catch(ValueError)
+        {
+            System.out.println("Insira um id Valido");
+        }
     }
 
     public static boolean Prompt_List()
@@ -90,6 +107,10 @@ public class Main
             }
             else if(choice == 3)
             {
+                Prompt_Delete();
+            }
+            else if(choice == 4)
+            {
                 System.out.println("Saindo...");
                 break;
             }
@@ -97,5 +118,3 @@ public class Main
     }
 
 }
-
-
