@@ -24,6 +24,11 @@ public class Main
         }
     }
 
+    public static void Delete_Book()
+    {
+        
+    }
+
     public static boolean Prompt_List()
     {
         try
@@ -92,3 +97,4 @@ public class Main
     }
 
 }
+
