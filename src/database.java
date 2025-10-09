@@ -12,7 +12,7 @@ public class database
             Connection conn = DriverManager.getConnection(url, user, pass);
             conn.close();
         } catch (SQLException e) {
-            System.out.println("❌ Erro ao conectar:");
+            System.out.println("Erro ao conectar:");
             e.printStackTrace();
         }
         return(
@@ -111,3 +111,4 @@ public class database
         rs.close();
     }
 }
+
