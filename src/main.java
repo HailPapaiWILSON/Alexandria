@@ -34,13 +34,14 @@ public class Main
             System.out.println("Insira o id Do Livro que Deseja Deletar");
             try
             {
-                BookId = scan.nextLine(BookId);
+                BookId = scan.nextInt();
+                database.Delete_Books(BookId);
             }catch(SQLException e)
             {
                 System.out.println("Erro ao Deletar Livro: " + e.getMessage());
             }
 
-        }catch(ValueError)
+        }catch(Exception e)
         {
             System.out.println("Insira um id Valido");
         }
@@ -90,9 +91,10 @@ public class Main
         while(true)
         {
             System.out.println("----BEM VINDO A ALEXANDRIA----");
-            System.out.println("1. Adicionar um livro");
+            System.out.println("1. Adicionar livro");
             System.out.println("2. Listar sua Biblioteca");
-            System.out.println("3. Sair");
+            System.out.println("3. Deletar Livro");
+            System.out.println("4. Sair");
             
             int choice = scan.nextInt();
             scan.nextLine();
