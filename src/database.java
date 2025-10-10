@@ -4,9 +4,7 @@ public class database
 {
     static Connection Connect_Database() throws SQLException
     {
-        String url = "jdbc:mysql://localhost:3306/MYSQL";
-        String user = "root";
-        String pass = "batata";
+        String url = "jdbc:sqlite:alexandria.db";
 
         try {
             Connection conn = DriverManager.getConnection(url, user, pass);
@@ -28,11 +26,12 @@ public class database
     stmt.executeUpdate(
             """
         CREATE TABLE IF NOT EXISTS books (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,                   
-            author VARCHAR(255) NOT NULL,                  
-            url VARCHAR(255) NOT NULL,                    
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,                   
+            author TEXT NOT NULL,                  
+            url TEXT NOT NULL,                    
+            created_at TEXT DEFAULT (date('now', 'localtime'))
+        )
         );
         """
         );
@@ -47,7 +46,7 @@ public class database
         PreparedStatement ps = conn.prepareStatement(
                 """
                 INSERT INTO books (title, author, url)
-                VALUES (?, ?, ?);
+                VALUES (?, ?, ?)
                 """);
         ps.setString(1, title);
         ps.setString(2, author);
@@ -62,9 +61,9 @@ public class database
     public static void Delete_Books(int id) throws SQLException
     {
         Connection conn = Connect_Database();
-        PreparedStatement ps = conn.prepereStatement("DELETE FROM books WHERE id = ?;");
+        PreparedStatement ps = conn.prepareStatement("DELETE FROM books WHERE id = ?");
 
-        ps.setString(1, id);
+        ps.setInt(1, id);
         ps.executeUpdate();
         System.out.println("livro de id: " + id + " deletado com sucesso");
 
@@ -76,7 +75,7 @@ public class database
     {
         Connection conn = Connect_Database();
         Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM books;");
+        ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM books");
         int count = 0;
         if(rs.next())
         {
@@ -111,4 +110,3 @@ public class database
         rs.close();
     }
 }
-
