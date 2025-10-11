@@ -1,8 +1,24 @@
 # Importa o módulo sqlite3 para trabalhar com bancos de dados SQLite
 import sqlite3
+import os
 
 # Nome do arquivo do banco de dados SQLite
+APP_NAME: str = "alexandria"
 DB_NAME: str = "alexandria.db"
+
+def get_path() -> str:
+    if os.name == "nt":
+        app_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', APP_NAME)
+    else:
+        app_dir = os.path.join(os.path.expanduser('~'), '.config', APP_NAME)
+
+    os.makedirs(app_dir, exist_ok = True)
+
+    full_db_path = os.path.join(app_dir, DB_NAME)
+
+    return full_db_path
+
+DB_PATH = get_path()
 
 def get_db_connection() -> sqlite3.Connection:
     """
@@ -11,7 +27,7 @@ def get_db_connection() -> sqlite3.Connection:
     Returns:
         sqlite3.Connection: Objeto de conexão com o banco de dados
     """
-    conn: sqlite3.Connection = sqlite3.connect(DB_NAME)
+    conn: sqlite3.Connection = sqlite3.connect(DB_PATH)
     return conn
 
 def create_tables() -> None:
