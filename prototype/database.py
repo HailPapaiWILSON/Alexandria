@@ -1,6 +1,10 @@
 # Importa o módulo sqlite3 para trabalhar com bancos de dados SQLite
 import sqlite3
 import os
+from rich.console import Console
+from rich.panel import Panel
+
+console = Console()
 
 # Nome do arquivo do banco de dados SQLite
 APP_NAME: str = "alexandria"
@@ -70,7 +74,7 @@ def add_book(title: str, author: str, url: str) -> None:
         VALUES (?, ?, ?)   
         """, (title, author, url))  
     conn.close()
-    print(f"\t✅ Adicionado '{title}' por {author} à sua biblioteca.")
+    console.print(Panel(f"[bold cyan]'{title}'[/bold cyan] por [bold yellow]{author}[/bold yellow] [bold green]✓ adicionado com sucesso![/bold green]"))
 
 def book_count() -> int:
     """
@@ -120,9 +124,9 @@ def delete_book(book_id: int) -> None:
     
     # Feedback para o usuário
     if affected == 0:
-        print("\tLivro não encontrado.")
+        console.print(Panel("[bold yellow]⚠ Livro não encontrado.[/bold yellow]"))
     else:
-        print(f"\t✅ Livro com ID {book_id} removido da sua biblioteca.")
+        console.print(Panel(f"[bold red]✗ Livro com ID {book_id} removido da sua biblioteca.[/bold red]"))
 
 def open_book(book_id: int) -> str | None:
     """
@@ -174,3 +178,8 @@ def search_books(term: str) -> list[tuple]:
     books: list[tuple] = cursor.fetchall()  # Pega todos os resultados que correspondem ao termo de busca
     conn.close()
     return books
+
+
+def update(title, author, url):
+    raise NotImplementedError()
+    

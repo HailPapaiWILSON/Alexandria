@@ -1,29 +1,51 @@
 import webbrowser
 import database
 import os
+import click
+from rich.table import Table
+from rich.console import Console
+from rich.prompt import Prompt, Confirm
+from rich.panel import Panel
+from rich.text import Text
 
-def clear() -> None:
-    if os.name == "nt":
-        os.system("cls")
-    else:
-        os.system("clear")
+console = Console()
 
-def prompt_add() -> None:
-    name: str = input("Nome do livro: ")
-    author: str = input("Autor: ")
-    url: str = input("URL: ")
+@click.group()
+def cli() -> None:
+    database.create_tables()
+
+@cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
+def add() -> None:
+    name = Prompt.ask("[bold bright_cyan]📚 Nome do livro[/bold bright_cyan]")
+    author = Prompt.ask("[bold bright_yellow]✍️ Autor[/bold bright_yellow]")
+    url = Prompt.ask("[bold bright_magenta]🔗 URL[/bold bright_magenta]")
+    
     if not name or not author or not url:
-        print("❌ Por favor, insira um nome, autor e URL válidos.")
+        console.print(Panel("[bold red]✗ Por favor, insira um nome, autor e URL válidos.[/bold red]"))
         return
     database.add_book(name, author, url)
 
-def prompt_list() -> bool:
+@cli.command(name="ls", help="Lista todos os livros na biblioteca.")
+def list_books() -> bool:
     total_books: int = database.book_count()
     if total_books == 0:
-        print("\n📚 Sua biblioteca está vazia.")
+        console.print(Panel("[bold yellow]📚 Sua biblioteca está vazia.[/bold yellow]"))
         return False
     
-    print("\n------ B I B L I O T E C A ------\n")
+    table = Table(
+        title = "B I B L I O T E C A",
+        show_header = True,
+        header_style = "bold bright_magenta",
+        title_style = "bold bright_cyan",
+        show_lines = True,
+        border_style = "bright_blue",
+        padding = (0, 2)
+    )
+
+    table.add_column("ID", style="bright_blue", width = 4, justify = "center")
+    table.add_column("Titulo", style="bright_yellow", width = 35, justify = "center")
+    table.add_column("Autor", style="bright_green", width = 20, justify = "center")
+    table.add_column("Adicionado em", style="bright_magenta", width = 15, justify = "center")
 
     books: list[tuple] = database.list_books()
 
@@ -33,46 +55,66 @@ def prompt_list() -> bool:
         author: str = book[2]
         created_at: str = book[4]
 
-        print(f"[{book_id}] {title}")
-        print(f"     👤 por {author}")
-        print(f"     🗓️ Adicionado: {created_at}")
-        print("--------------------------------------------------")
+        title_text = Text(title)
+        title_text.truncate(35, overflow="ellipsis")
+
+        author_text = Text(author)
+        author_text.truncate(20, overflow="ellipsis")
+
+        table.add_row(
+            str(book_id),
+            title_text,
+            author_text,
+            created_at
+        )
+    console.print(table)
+
     return True
 
-def prompt_open() -> None:
-    try:
-        book_id: int = int(input("\nDigite o ID do livro para abrir: "))
-        url: str | None = database.open_book(book_id)
-        if url:
-            webbrowser.open(url)
-        else:
-            print("Livro não encontrado.")
-    except ValueError:
-        print("❌ Por favor, insira um ID válido.")
+@cli.command(help="Abre a URL de um livro no navegador usando seu ID.")
+@click.argument("book_id", type=int)
+def open(book_id) -> None:
+    url: str | None = database.open_book(book_id)
+    if url:
+        console.print(Panel(f"[bold green]🌐 Abrindo livro ID {book_id}...[/bold green]"))
+        webbrowser.open(url)
+    else:
+        console.print(Panel("[bold red]✗ Livro não encontrado.[/bold red]"))
 
-def prompt_delete() -> None:
-    try:
-        book_id: int = int(input("\nDigite o ID do livro para deletar: "))
+@cli.command(name="rm", help="Deleta um livro da biblioteca usando seu ID.")
+@click.argument("book_id", type=int)
+@click.option('--force', '-f', is_flag=True, help='Deleta sem confirmação')
+def delete(book_id: int, force: bool) -> None:
+    if not force:
+        if click.confirm(f"Tem certeza que deseja deletar livro com ID - {book_id}"):
+            database.delete_book(book_id)
+    else:   
         database.delete_book(book_id)
-    except ValueError:
-        print("❌ Por favor, insira um ID válido.")
 
-def prompt_search() -> None:
-    clear()
-    print("\n------ B U S C A R ------\n")
-    
-    try: 
-        term: str = input("🔍 Digite o termo de busca: ")
-    except ValueError:
-        print("❌ Por favor, insira um termo válido.")
-        return
+@cli.command(name = "fb" ,help="Busca livros por um termo no título ou autor(Case Insensitive).")
+@click.argument("term", type=str)
+def search(term: str) -> None:
+
     books: list[tuple] = database.search_books(term)
 
     if not books:
-        print("❌ Termo não encontrado.")
+        console.print(Panel(f"[bold yellow]⚠ Termo '[bold white]{term}[/bold white]' não encontrado.[/bold yellow]"))
         return
-    
-    print(f"------- RESULTADOS DE BUSCA POR {term} - ({len(books)}) -------")
+
+    table = Table(
+        title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)})",
+        show_header = True,
+        header_style = "bold bright_magenta",
+        title_style = "bold bright_cyan",
+        show_lines = True,
+        border_style = "bright_blue",
+        padding = (0, 2)
+    )
+
+    table.add_column("ID", style="bright_blue", width = 4, justify = "center")
+    table.add_column("Titulo", style="bright_yellow", width = 35, justify = "center")
+    table.add_column("Autor", style="bright_green", width = 20, justify = "center")
+    table.add_column("Adicionado em", style="bright_magenta", width = 15, justify = "center")
 
     for book in books:
         book_id: int = book[0]
@@ -80,42 +122,21 @@ def prompt_search() -> None:
         author: str = book[2]
         created_at: str = book[4]
 
-        print(f"[{book_id}] {title}")
-        print(f"     👤 por {author}")
-        print(f"     🗓️ Adicionado: {created_at}")
-        print("--------------------------------------------------")
+        title_text = Text(title)
+        title_text.truncate(35, overflow="ellipsis")
+
+        author_text = Text(author)
+        author_text.truncate(20, overflow="ellipsis")
+
+        table.add_row(
+            str(book_id),
+            title_text,
+            author_text,
+            created_at
+        )
+    console.print(table)
 
 def main() -> None:
-    database.create_tables()
-    while True:
-        clear()
-        print("\n------ A L E X A N D R I A ------\n")
-        print("1. 🌟 Adicionar um livro")
-        print("2. 📚 Listar sua biblioteca")
-        print("3. 🌐 Abrir um livro")
-        print("4. 🗑️ Deletar um livro")
-        print("5. 🔍 Buscar um livro")
-        print("6. 🚪 Sair")
-        print("---------------------------------------\n")
-        choice: str = input("\n👉 Escolha uma opção: ")
-
-        if choice == "1":
-            prompt_add()
-        elif choice == "2":
-            prompt_list()
-        elif choice == "3":
-            prompt_list()
-            prompt_open()
-        elif choice == "4":
-            prompt_list()
-            prompt_delete()
-        elif choice == "5":
-            prompt_search()
-        elif choice == "6":
-            break
-        else:
-            print("❌ Opção inválida. Tente novamente.")
-        input("\nPressione Enter para continuar...")
-
+    cli()
 if __name__ == "__main__":
     main()
