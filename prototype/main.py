@@ -16,12 +16,12 @@ def cli() -> None:
 
 @cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
 def add() -> None:
-    name = Prompt.ask("[bold bright_cyan]📚 Nome do livro[/bold bright_cyan]")
-    author = Prompt.ask("[bold bright_yellow]✍️ Autor[/bold bright_yellow]")
-    url = Prompt.ask("[bold bright_magenta]🔗 URL[/bold bright_magenta]")
+    name = Prompt.ask("[bold blue] Nome do livro[/bold blue]")
+    author = Prompt.ask("[bold] Autor[/bold]")
+    url = Prompt.ask("[bold cyan] URL[/bold cyan]")
     
     if not name or not author or not url:
-        console.print(Panel("[bold red]✗ Por favor, insira um nome, autor e URL válidos.[/bold red]"))
+        console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
         return
     database.add_book(name, author, url)
 
@@ -29,23 +29,23 @@ def add() -> None:
 def list_books() -> bool:
     total_books: int = database.book_count()
     if total_books == 0:
-        console.print(Panel("[bold yellow]📚 Sua biblioteca está vazia.[/bold yellow]"))
+        console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
         return False
     
     table = Table(
         title = "B I B L I O T E C A",
         show_header = True,
-        header_style = "bold bright_magenta",
-        title_style = "bold bright_cyan",
+        header_style = "bold cyan",
+        title_style = "bold blue",
         show_lines = True,
-        border_style = "bright_blue",
+        border_style = "blue",
         padding = (0, 2)
     )
 
-    table.add_column("ID", style="bright_blue", width = 4, justify = "center")
-    table.add_column("Titulo", style="bright_yellow", width = 35, justify = "center")
-    table.add_column("Autor", style="bright_green", width = 20, justify = "center")
-    table.add_column("Adicionado em", style="bright_magenta", width = 15, justify = "center")
+    table.add_column("ID", style="blue", width = 4, justify = "center")
+    table.add_column("Titulo", style="white", width = 35, justify = "center")
+    table.add_column("Autor", style="green", width = 20, justify = "center")
+    table.add_column("Adicionado em", style="cyan", width = 15, justify = "center")
 
     books: list[tuple] = database.list_books()
 
@@ -76,10 +76,10 @@ def list_books() -> bool:
 def open(book_id) -> None:
     url: str | None = database.open_book(book_id)
     if url:
-        console.print(Panel(f"[bold green]🌐 Abrindo livro ID {book_id}...[/bold green]"))
+        console.print(Panel(f"[green] Abrindo livro ID {book_id}...[/green]"))
         webbrowser.open(url)
     else:
-        console.print(Panel("[bold red]✗ Livro não encontrado.[/bold red]"))
+        console.print(Panel("[bold red] Livro não encontrado.[/bold red]"))
 
 @cli.command(name="rm", help="Deleta um livro da biblioteca usando seu ID.")
 @click.argument("book_id", type=int)
@@ -98,23 +98,23 @@ def search(term: str) -> None:
     books: list[tuple] = database.search_books(term)
 
     if not books:
-        console.print(Panel(f"[bold yellow]⚠ Termo '[bold white]{term}[/bold white]' não encontrado.[/bold yellow]"))
+        console.print(Panel(f"[yellow] Termo '[bold white]{term}[/bold white]' não encontrado.[/yellow]"))
         return
 
     table = Table(
         title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)})",
         show_header = True,
-        header_style = "bold bright_magenta",
-        title_style = "bold bright_cyan",
+        header_style = "bold cyan",
+        title_style = "bold blue",
         show_lines = True,
-        border_style = "bright_blue",
+        border_style = "blue",
         padding = (0, 2)
     )
 
-    table.add_column("ID", style="bright_blue", width = 4, justify = "center")
-    table.add_column("Titulo", style="bright_yellow", width = 35, justify = "center")
-    table.add_column("Autor", style="bright_green", width = 20, justify = "center")
-    table.add_column("Adicionado em", style="bright_magenta", width = 15, justify = "center")
+    table.add_column("ID", style="blue", width = 4, justify = "center")
+    table.add_column("Titulo", style="white", width = 35, justify = "center")
+    table.add_column("Autor", style="green", width = 20, justify = "center")
+    table.add_column("Adicionado em", style="cyan", width = 15, justify = "center")
 
     for book in books:
         book_id: int = book[0]

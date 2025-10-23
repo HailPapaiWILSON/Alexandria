@@ -74,7 +74,7 @@ def add_book(title: str, author: str, url: str) -> None:
         VALUES (?, ?, ?)   
         """, (title, author, url))  
     conn.close()
-    console.print(Panel(f"[bold cyan]'{title}'[/bold cyan] por [bold yellow]{author}[/bold yellow] [bold green]✓ adicionado com sucesso![/bold green]"))
+    console.print(Panel(f"[bold blue] '{title}'[/bold blue] por [bold]{author}[/bold] [green]adicionado com sucesso![/green]"))
 
 def book_count() -> int:
     """
@@ -124,9 +124,9 @@ def delete_book(book_id: int) -> None:
     
     # Feedback para o usuário
     if affected == 0:
-        console.print(Panel("[bold yellow]⚠ Livro não encontrado.[/bold yellow]"))
+        console.print(Panel("[yellow] Livro não encontrado.[/yellow]"))
     else:
-        console.print(Panel(f"[bold red]✗ Livro com ID {book_id} removido da sua biblioteca.[/bold red]"))
+        console.print(Panel(f"[bold red] Livro com ID {book_id} removido da sua biblioteca.[/bold red]"))
 
 def open_book(book_id: int) -> str | None:
     """
