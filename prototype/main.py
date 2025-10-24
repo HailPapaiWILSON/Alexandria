@@ -111,7 +111,7 @@ def search(term: str) -> None:
         padding = (0, 2)
     )
 
-    table.add_column("ID", style="blue", width = 4, justify = "center")
+    table.add_column("ID", style="white", width = 4, justify = "center")
     table.add_column("Titulo", style="white", width = 35, justify = "center")
     table.add_column("Autor", style="green", width = 20, justify = "center")
     table.add_column("Adicionado em", style="cyan", width = 15, justify = "center")
