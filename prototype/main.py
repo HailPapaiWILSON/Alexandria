@@ -14,7 +14,7 @@ console = Console()
 def cli() -> None:
     database.create_tables()
 
-@cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
+@cli.command(help = "Adiciona um novo livro (título, autor, URL) à biblioteca.")
 def add() -> None:
     name = Prompt.ask("[bold] Nome do livro[/bold]")
     author = Prompt.ask("[bold cyan] Autor[/bold cyan]")
@@ -25,8 +25,8 @@ def add() -> None:
         return
     database.add_book(name, author, url)
 
-@cli.command(name="ls", help="Lista todos os livros na biblioteca.")
-def list_books() -> bool:
+@cli.command(name = "ls", help = "Lista todos os livros na biblioteca.")
+def list_books():
     total_books: int = database.book_count()
     if total_books == 0:
         console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
@@ -56,10 +56,10 @@ def list_books() -> bool:
         created_at: str = book[4]
 
         title_text = Text(title)
-        title_text.truncate(35, overflow="ellipsis")
+        title_text.truncate(35, overflow = "ellipsis")
 
         author_text = Text(author)
-        author_text.truncate(20, overflow="ellipsis")
+        author_text.truncate(20, overflow = "ellipsis")
 
         table.add_row(
             str(book_id),
@@ -71,8 +71,8 @@ def list_books() -> bool:
 
     return True
 
-@cli.command(help="Abre a URL de um livro no navegador usando seu ID.")
-@click.argument("book_id", type=int)
+@cli.command(help = "Abre a URL de um livro no navegador usando seu ID.")
+@click.argument("book_id", type = int)
 def open(book_id) -> None:
     url: str | None = database.open_book(book_id)
     if url:
@@ -81,9 +81,9 @@ def open(book_id) -> None:
     else:
         console.print(Panel("[bold red] Livro não encontrado.[/bold red]"))
 
-@cli.command(name="rm", help="Deleta um livro da biblioteca usando seu ID.")
-@click.argument("book_id", type=int)
-@click.option('--force', '-f', is_flag=True, help='Deleta sem confirmação')
+@cli.command(name = "rm", help = "Deleta um livro da biblioteca usando seu ID.")
+@click.argument("book_id", type = int)
+@click.option('--force', '-f', is_flag = True, help = 'Deleta sem confirmação')
 def delete(book_id: int, force: bool) -> None:
     if not force:
         if click.confirm(f"Tem certeza que deseja deletar livro com ID - {book_id}"):
@@ -91,8 +91,8 @@ def delete(book_id: int, force: bool) -> None:
     else:   
         database.delete_book(book_id)
 
-@cli.command(name = "fb" ,help="Busca livros por um termo no título ou autor(Case Insensitive).")
-@click.argument("term", type=str)
+@cli.command(name = "fd" ,help = "Busca livros por um termo no título ou autor(Case Insensitive).")
+@click.argument("term", type = str)
 def search(term: str) -> None:
 
     books: list[tuple] = database.search_books(term)
@@ -123,10 +123,10 @@ def search(term: str) -> None:
         created_at: str = book[4]
 
         title_text = Text(title)
-        title_text.truncate(35, overflow="ellipsis")
+        title_text.truncate(35, overflow = "ellipsis")
 
         author_text = Text(author)
-        author_text.truncate(20, overflow="ellipsis")
+        author_text.truncate(20, overflow = "ellipsis")
 
         table.add_row(
             str(book_id),
@@ -136,7 +136,7 @@ def search(term: str) -> None:
         )
     console.print(table)
 
-def main() -> None:
+def main():
     cli()
 if __name__ == "__main__":
     main()

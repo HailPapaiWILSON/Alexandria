@@ -179,7 +179,16 @@ def search_books(term: str) -> list[tuple]:
     conn.close()
     return books
 
+def update(book_id, title, author, url):
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-def update(title, author, url):
-    raise NotImplementedError()
-    
+    update = []
+    values = []
+
+    if title is not None:
+        update.append("title = ?")
+    if author is not None:
+        update.append("author = ?")
+    if url is not None:
+        update.append("url = ?")
