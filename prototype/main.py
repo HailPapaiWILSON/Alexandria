@@ -25,7 +25,7 @@ def add() -> None:
         return
     database.add_book(name, author, url)
 
-@cli.command(name = "ls", help = "Lista todos os livros na biblioteca.")
+@cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
 def list_books():
     total_books: int = database.book_count()
     if total_books == 0:
@@ -81,7 +81,7 @@ def open(book_id) -> None:
     else:
         console.print(Panel("[bold red] Livro não encontrado.[/bold red]"))
 
-@cli.command(name = "rm", help = "Deleta um livro da biblioteca usando seu ID.")
+@cli.command(name = "del", help = "Deleta um livro da biblioteca usando seu ID.")
 @click.argument("book_id", type = int)
 @click.option('--force', '-f', is_flag = True, help = 'Deleta sem confirmação')
 def delete(book_id: int, force: bool) -> None:
@@ -91,7 +91,7 @@ def delete(book_id: int, force: bool) -> None:
     else:   
         database.delete_book(book_id)
 
-@cli.command(name = "fd" ,help = "Busca livros por um termo no título ou autor(Case Insensitive).")
+@cli.command(name = "find" ,help = "Busca livros por um termo no título ou autor(Case Insensitive).")
 @click.argument("term", type = str)
 def search(term: str) -> None:
 
@@ -135,6 +135,17 @@ def search(term: str) -> None:
             created_at
         )
     console.print(table)
+
+@cli.command(help = "Atualiza informaçoes de um livros existente.")
+@click.argument("book_id", type = int)
+@click.option("--title", "-t", help = "Novo Titulo")
+@click.option("--author", "-a", help = "Novo Autor")
+@click.option("--url", "-u", help = "Novo URL")
+def edit(book_id, title, author, url):
+    if not any([title, author, url]):
+        console.print(Panel(f"[red]Forneça pelo menos algum campo para atualizar (--title, --author, --url)[/red]"))
+        return
+    database.update(book_id, title, author, url)
 
 def main():
     cli()

@@ -188,7 +188,29 @@ def update(book_id, title, author, url):
 
     if title is not None:
         update.append("title = ?")
+        values.append(title)
     if author is not None:
         update.append("author = ?")
+        values.append(author)
     if url is not None:
         update.append("url = ?")
+        values.append(url)
+
+    if not update:
+        console.print(Panel(f"[yellow] Nenhum campo para atualizar.[/yellow]"))
+        conn.close()
+        return
+
+    values.append(book_id)
+    query = f"UPDATE books SET {','.join(update)} WHERE id = ?"
+
+    with conn:
+        cursor.execute(query, tuple(values))
+        affected = cursor.rowcount
+
+    conn.close()
+
+    if affected == 0:
+        console.print(Panel(f"[yellow] Livro nao encontrado[/yellow]"))
+    else:
+        console.print(Panel(f" Livro ID - {book_id} [green]atualizado com successo[/green]"))
