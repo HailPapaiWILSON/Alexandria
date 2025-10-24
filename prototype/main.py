@@ -16,9 +16,9 @@ def cli() -> None:
 
 @cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
 def add() -> None:
-    name = Prompt.ask("[bold blue] Nome do livro[/bold blue]")
-    author = Prompt.ask("[bold] Autor[/bold]")
-    url = Prompt.ask("[bold cyan] URL[/bold cyan]")
+    name = Prompt.ask("[bold] Nome do livro[/bold]")
+    author = Prompt.ask("[bold cyan] Autor[/bold cyan]")
+    url = Prompt.ask("[bold blue] URL[/bold blue]")
     
     if not name or not author or not url:
         console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
