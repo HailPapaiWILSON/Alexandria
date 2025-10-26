@@ -182,6 +182,7 @@ def edit(book_id, title, author, url, tags, description):
         console.print(Panel(f"[red] Forneça pelo menos algum campo para atualizar (--title, --author, --url)[/red]"))
         return
     database.update(book_id, title, author, url, tags, description)
+
 @cli.command(help = "Mostra informações detalhadas de um livro.")
 @click.argument("book_id", type = int)
 def detail(book_id):
@@ -189,25 +190,29 @@ def detail(book_id):
 
     if not book:
         console.print(Panel(f" [bold red]Livro não encontrado[/bold red]"))
+        return
 
     book_id = book[0]
     title = book[1]
     author = book[2]
     url = book[3]
-    description = book[4] if len(book) > 4 else None
-    tags = book[5] if len(book) > 5 else None
+    tags = book[4] if len(book) > 4 else None
+    description = book[5] if len(book) > 5 else None
     created_at = book[6] if len(book) > 6 else book[4]
 
-    info_text = f"""
-        [bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
-        [bold cyan]Autor:[/bold cyan]  [bold white]{author}[/bold white]
-        [bold cyan]URL:[/bold cyan]  [bold white]{url}[/bold white]
-        [bold cyan]Tags:[/bold cyan]  [bold white]{tags or "Sem tags"}[/bold white]
-        [bold cyan]Descriçao:[/bold cyan]  [bold white]{description or "Nenhuma descriçao"}[/bold white]
-        [bold cyan]Adicionado em:[/bold cyan]  [bold white]{created_at}[/bold white]
-    """
-    console.print(Panel(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue"))
-
+    info_text = f"""[bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
+[bold cyan]Autor:[/bold cyan]  [bold white]{author}[/bold white]
+[bold cyan]URL:[/bold cyan]  [bold white]{url}[/bold white]
+[bold cyan]Tags:[/bold cyan]  [bold white]{tags or "Sem tags"}[/bold white]
+[bold cyan]Descrição:[/bold cyan]  [bold white]{description or "Nenhuma descrição"}[/bold white]
+[bold cyan]Adicionado em:[/bold cyan]  [bold white]{created_at}[/bold white]"""
+    
+    console.print(Panel(
+        info_text, 
+        title = f"[bold]ID - {book_id}[/bold]", 
+        border_style = "blue",
+        padding = (1, 2)  # (vertical, horizontal) padding
+    ))
 def main():
     cli()
 if __name__ == "__main__":

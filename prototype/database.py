@@ -178,16 +178,16 @@ def search_books(term: str, search_type = "all") -> list[tuple]:
     """, (search_term,))
     
     elif search_type == "author":
-            cursor.execute("""
-            SELECT * FROM books
-            WHERE title LIKE ? COLLATE NOCASE
-        """, (search_term,))
+        cursor.execute("""
+        SELECT * FROM books
+        WHERE author LIKE ? COLLATE NOCASE
+    """, (search_term,))
         
     elif search_type == "tag":
-                cursor.execute("""
-                SELECT * FROM books
-                WHERE title LIKE ? COLLATE NOCASE
-            """, (search_term,))
+        cursor.execute("""
+        SELECT * FROM books
+        WHERE tags LIKE ? COLLATE NOCASE
+    """, (search_term,))
     else:
         cursor.execute("""
         SELECT * FROM books
