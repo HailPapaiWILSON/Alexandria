@@ -25,6 +25,10 @@ def add() -> None:
     if not name or not author or not url:
         console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
         return
+
+    description = description if description.strip() else None
+    tags = tags if tags.strip() else None
+    
     database.add_book(name, author, url, tags, description)
 
 @cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
@@ -101,9 +105,25 @@ def delete(book_id: int, force: bool) -> None:
 
 @cli.command(name = "search" ,help = "Busca livros por um termo no título ou autor(Case Insensitive).")
 @click.argument("term", type = str)
-def search(term: str) -> None:
+@click.option("--title", "-t", is_flag = True, help = "Busca apenas no título")
+@click.option("--author", "-a", is_flag = True, help = "Busca apenas no autor")
+@click.option("--tag", "-g", is_flag = True, help = "Busca apenas nas tags")
+def search(term: str, title, author, tag) -> None:
 
-    books: list[tuple] = database.search_books(term)
+    if title:
+        search_type = "title"
+        search_label = "TÍTULO"
+    elif author:
+        search_type = "author"
+        search_label = "AUTOR"
+    elif tag:
+        search_type = "tag"
+        search_label = "TAGS"
+    else:
+        search_type = "all"
+        search_label = "TODOS OS CAMPOS"
+
+    books: list[tuple] = database.search_books(term, search_type)
 
     if not books:
         console.print(Panel(f"[yellow] Termo '[bold white]{term}[/bold white]' não encontrado.[/yellow]"))
@@ -155,11 +175,38 @@ def search(term: str) -> None:
 @click.option("--title", "-t", help = "Novo Titulo")
 @click.option("--author", "-a", help = "Novo Autor")
 @click.option("--url", "-u", help = "Novo URL")
+@click.option("--tags", "-g", help = "Novas Tags (separadas por vírgula)")
+@click.option("--description", "-d", help = "Nova Descrição")
 def edit(book_id, title, author, url, tags, description):
     if not any([title, author, url, tags, description]):
         console.print(Panel(f"[red] Forneça pelo menos algum campo para atualizar (--title, --author, --url)[/red]"))
         return
     database.update(book_id, title, author, url, tags, description)
+@cli.command(help = "Mostra informações detalhadas de um livro.")
+@click.argument("book_id", type = int)
+def detail(book_id):
+    book = database.get_book_details(book_id)
+
+    if not book:
+        console.print(Panel(f" [bold red]Livro não encontrado[/bold red]"))
+
+    book_id = book[0]
+    title = book[1]
+    author = book[2]
+    url = book[3]
+    description = book[4] if len(book) > 4 else None
+    tags = book[5] if len(book) > 5 else None
+    created_at = book[6] if len(book) > 6 else book[4]
+
+    info_text = f"""
+        [bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
+        [bold cyan]Autor:[/bold cyan]  [bold white]{author}[/bold white]
+        [bold cyan]URL:[/bold cyan]  [bold white]{url}[/bold white]
+        [bold cyan]Tags:[/bold cyan]  [bold white]{tags or "Sem tags"}[/bold white]
+        [bold cyan]Descriçao:[/bold cyan]  [bold white]{description or "Nenhuma descriçao"}[/bold white]
+        [bold cyan]Adicionado em:[/bold cyan]  [bold white]{created_at}[/bold white]
+    """
+    console.print(Panel(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue"))
 
 def main():
     cli()

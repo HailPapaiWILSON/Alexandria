@@ -152,7 +152,7 @@ def open_book(book_id: int) -> str | None:
         return result[0]  # Retorna o primeiro (e único) campo da tupla (a URL)
     return None
 
-def search_books(term: str) -> list[tuple]:
+def search_books(term: str, search_type = "all") -> list[tuple]:
     """
     Busca livros por um termo no título ou autor (case insensitive).
     
@@ -171,7 +171,25 @@ def search_books(term: str) -> list[tuple]:
     search_term: str = f"%{term}%"
     
     # Busca em título OU autor, ignorando maiúsculas/minúsculas
-    cursor.execute("""
+    if search_type == "title":
+        cursor.execute("""
+        SELECT * FROM books
+        WHERE title LIKE ? COLLATE NOCASE
+    """, (search_term,))
+    
+    elif search_type == "author":
+            cursor.execute("""
+            SELECT * FROM books
+            WHERE title LIKE ? COLLATE NOCASE
+        """, (search_term,))
+        
+    elif search_type == "tag":
+                cursor.execute("""
+                SELECT * FROM books
+                WHERE title LIKE ? COLLATE NOCASE
+            """, (search_term,))
+    else:
+        cursor.execute("""
         SELECT * FROM books
         WHERE title LIKE ? COLLATE NOCASE
         OR author LIKE ? COLLATE NOCASE
@@ -223,3 +241,11 @@ def update(book_id, title, author, url, tags, description):
         console.print(Panel(f"[yellow] Livro nao encontrado[/yellow]"))
     else:
         console.print(Panel(f" Livro ID - {book_id} [green]atualizado com successo[/green]"))
+
+def get_book_details(book_id):
+    conn = get_db_connection()
+    cursor= conn.cursor()
+    cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result
