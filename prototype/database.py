@@ -49,14 +49,16 @@ def create_tables() -> None:
         conn.execute("""
         CREATE TABLE IF NOT EXISTS books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,                   
-            author TEXT NOT NULL,                  
-            url TEXT NOT NULL,                    
+            title TEXT NOT NULL,
+            author TEXT NOT NULL,
+            url TEXT NOT NULL,
+            tags TEXT,
+            description TEXT,
             created_at TEXT DEFAULT (date('now', 'localtime'))
         )
         """)
 
-def add_book(title: str, author: str, url: str) -> None:
+def add_book(title: str, author: str, url: str, tags, description) -> None:
     """
     Adiciona um novo livro ao banco de dados.
     
@@ -70,9 +72,9 @@ def add_book(title: str, author: str, url: str) -> None:
     conn: sqlite3.Connection = get_db_connection()
     with conn:  # Garante que as alterações serão salvas (commit) ao final do bloco
         conn.execute("""
-        INSERT INTO books (title, author, url)
-        VALUES (?, ?, ?)   
-        """, (title, author, url))  
+        INSERT INTO books (title, author, url, tags, description)
+        VALUES (?, ?, ?, ?, ?)   
+        """, (title, author, url, tags, description))  
     conn.close()
     console.print(Panel(f"[bold blue] '{title}'[/bold blue] por [bold]{author}[/bold] [green]adicionado com sucesso![/green]"))
 
@@ -171,15 +173,16 @@ def search_books(term: str) -> list[tuple]:
     # Busca em título OU autor, ignorando maiúsculas/minúsculas
     cursor.execute("""
         SELECT * FROM books
-        WHERE title LIKE ? COLLATE NOCASE  
-        OR author LIKE ? COLLATE NOCASE    
-    """, (search_term, search_term))  # Usa o mesmo termo para título e autor
+        WHERE title LIKE ? COLLATE NOCASE
+        OR author LIKE ? COLLATE NOCASE
+        OR tags LIKE ? COLLATE NOCASE
+    """, (search_term, search_term, search_term))  # Usa o mesmo termo para título e autor
     
     books: list[tuple] = cursor.fetchall()  # Pega todos os resultados que correspondem ao termo de busca
     conn.close()
     return books
 
-def update(book_id, title, author, url):
+def update(book_id, title, author, url, tags, description):
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -195,7 +198,13 @@ def update(book_id, title, author, url):
     if url is not None:
         update.append("url = ?")
         values.append(url)
-
+    if tags is not None:
+        update.append("tags = ?")
+        values.append(tags)
+    if description is not None:
+        update.append("description = ?")
+        values.append(description)
+        
     if not update:
         console.print(Panel(f"[yellow] Nenhum campo para atualizar.[/yellow]"))
         conn.close()

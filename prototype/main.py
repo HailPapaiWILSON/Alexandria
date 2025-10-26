@@ -19,11 +19,13 @@ def add() -> None:
     name = Prompt.ask("[bold] Nome do livro[/bold]")
     author = Prompt.ask("[bold cyan] Autor[/bold cyan]")
     url = Prompt.ask("[bold blue] URL[/bold blue]")
+    tags = Prompt.ask("[bold dark_blue] Tags[/bold dark_blue]")
+    description = Prompt.ask("[bold navy_blue] [/bold navy_blue]")
     
     if not name or not author or not url:
         console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
         return
-    database.add_book(name, author, url)
+    database.add_book(name, author, url, tags, description)
 
 @cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
 def list_books():
@@ -43,28 +45,34 @@ def list_books():
     )
 
     table.add_column("ID", style="white", width = 4, justify = "center")
-    table.add_column("Titulo", style="white", width = 35, justify = "center")
-    table.add_column("Autor", style="green", width = 20, justify = "center")
-    table.add_column("Adicionado em", style="cyan", width = 15, justify = "center")
-
+    table.add_column("Titulo", style="white", width = 30, justify = "center")
+    table.add_column("Autor", style="green", width = 17, justify = "center")
+    table.add_column("Tags", style="yellow", width = 17, justify = "center")
+    table.add_column("Adicionado em", style="cyan", width = 12, justify = "center")
+        
     books: list[tuple] = database.list_books()
 
     for book in books:
         book_id: int = book[0]
         title: str = book[1]
         author: str = book[2]
-        created_at: str = book[4]
+        tags: str = book[4]
+        created_at: str = book[6]
 
         title_text = Text(title)
-        title_text.truncate(35, overflow = "ellipsis")
+        title_text.truncate(30, overflow = "ellipsis")
 
         author_text = Text(author)
-        author_text.truncate(20, overflow = "ellipsis")
+        author_text.truncate(17, overflow = "ellipsis")
+
+        tags_text = Text(tags)
+        tags_text.truncate(17, overflow = "ellipsis")
 
         table.add_row(
             str(book_id),
             title_text,
             author_text,
+            tags_text,
             created_at
         )
     console.print(table)
@@ -112,26 +120,32 @@ def search(term: str) -> None:
     )
 
     table.add_column("ID", style="white", width = 4, justify = "center")
-    table.add_column("Titulo", style="white", width = 35, justify = "center")
-    table.add_column("Autor", style="green", width = 20, justify = "center")
-    table.add_column("Adicionado em", style="cyan", width = 15, justify = "center")
+    table.add_column("Titulo", style="white", width = 30, justify = "center")
+    table.add_column("Autor", style="green", width = 17, justify = "center")
+    table.add_column("Tags", style="yellow", width = 17, justify = "center")
+    table.add_column("Adicionado em", style="cyan", width = 12, justify = "center")
 
     for book in books:
         book_id: int = book[0]
         title: str = book[1]
         author: str = book[2]
-        created_at: str = book[4]
+        tags: str = book[4]
+        created_at: str = book[6]
 
         title_text = Text(title)
-        title_text.truncate(35, overflow = "ellipsis")
+        title_text.truncate(30, overflow = "ellipsis")
 
         author_text = Text(author)
-        author_text.truncate(20, overflow = "ellipsis")
+        author_text.truncate(17, overflow = "ellipsis")
+
+        tags_text = Text(tags)
+        tags_text.truncate(17, overflow = "ellipsis")
 
         table.add_row(
             str(book_id),
             title_text,
             author_text,
+            tags,
             created_at
         )
     console.print(table)
@@ -141,11 +155,11 @@ def search(term: str) -> None:
 @click.option("--title", "-t", help = "Novo Titulo")
 @click.option("--author", "-a", help = "Novo Autor")
 @click.option("--url", "-u", help = "Novo URL")
-def edit(book_id, title, author, url):
-    if not any([title, author, url]):
+def edit(book_id, title, author, url, tags, description):
+    if not any([title, author, url, tags, description]):
         console.print(Panel(f"[red] Forneça pelo menos algum campo para atualizar (--title, --author, --url)[/red]"))
         return
-    database.update(book_id, title, author, url)
+    database.update(book_id, title, author, url, tags, description)
 
 def main():
     cli()
