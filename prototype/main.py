@@ -14,32 +14,9 @@ console = Console()
 def cli() -> None:
     database.create_tables()
 
-@cli.command(help = "Adiciona um novo livro (título, autor, URL) à biblioteca.")
-def add() -> None:
-    name = Prompt.ask("[bold white] Nome do livro[/bold white]")
-    author = Prompt.ask("[bold white] Autor[/bold white]")
-    url = Prompt.ask("[bold white] URL[/bold white]")
-    tags = Prompt.ask("[bold white] Tags[/bold white]")
-    description = Prompt.ask("[bold white] Descrição[/bold white]")
-    
-    if not name or not author or not url:
-        console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
-        return
-
-    description = description if description.strip() else None
-    tags = tags if tags.strip() else None
-    
-    database.add_book(name, author, url, tags, description)
-
-@cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
-def list_books():
-    total_books: int = database.book_count()
-    if total_books == 0:
-        console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
-        return False
-    
+def create_rich_table(books, title) -> Table:
     table = Table(
-        title = "B I B L I O T E C A",
+        title = title,
         show_header = True,
         header_style = "bold cyan",
         title_style = "bold blue",
@@ -79,6 +56,35 @@ def list_books():
             tags_text,
             created_at
         )
+    return table
+
+@cli.command(help = "Adiciona um novo livro (título, autor, URL) à biblioteca.")
+def add() -> None:
+    name = Prompt.ask("[bold white] Nome do livro[/bold white]")
+    author = Prompt.ask("[bold white] Autor[/bold white]")
+    url = Prompt.ask("[bold white] URL[/bold white]")
+    tags = Prompt.ask("[bold white] Tags[/bold white]")
+    description = Prompt.ask("[bold white] Descrição[/bold white]")
+    
+    if not name or not author or not url:
+        console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
+        return
+
+    description = description if description.strip() else None
+    tags = tags if tags.strip() else None
+    
+    database.add_book(name, author, url, tags, description)
+
+@cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
+def list_books():
+    total_books: int = database.book_count()
+    if total_books == 0:
+        console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
+        return False
+    
+    books = database.list_books()
+    table_title = "B I B L I O T E C A"
+    table = create_rich_table(books, table_title)
     console.print(table)
 
     return True
@@ -124,50 +130,10 @@ def search(term: str, title, author, tag) -> None:
         search_label = "TODOS OS CAMPOS"
 
     books: list[tuple] = database.search_books(term, search_type)
-
-    if not books:
-        console.print(Panel(f"[yellow] Termo '[bold white]{term}[/bold white]' não encontrado.[/yellow]"))
-        return
-
-    table = Table(
-        title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)})",
-        show_header = True,
-        header_style = "bold cyan",
-        title_style = "bold blue",
-        show_lines = True,
-        border_style = "blue",
-        padding = (0, 2)
-    )
-
-    table.add_column("ID", style="white", width = 4, justify = "center")
-    table.add_column("Titulo", style="white", width = 30, justify = "center")
-    table.add_column("Autor", style="green", width = 17, justify = "center")
-    table.add_column("Tags", style="yellow", width = 17, justify = "center")
-    table.add_column("Adicionado em", style="cyan", width = 12, justify = "center")
-
-    for book in books:
-        book_id: int = book[0]
-        title: str = book[1]
-        author: str = book[2]
-        tags: str = book[4]
-        created_at: str = book[6]
-
-        title_text = Text(title)
-        title_text.truncate(30, overflow = "ellipsis")
-
-        author_text = Text(author)
-        author_text.truncate(17, overflow = "ellipsis")
-
-        tags_text = Text(tags)
-        tags_text.truncate(17, overflow = "ellipsis")
-
-        table.add_row(
-            str(book_id),
-            title_text,
-            author_text,
-            tags,
-            created_at
-        )
+    
+    table_title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)})"
+    table = create_rich_table(books, table_title)
+    
     console.print(table)
 
 @cli.command(help = "Atualiza informaçoes de um livros existente.")
