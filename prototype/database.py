@@ -58,6 +58,20 @@ def create_tables() -> None:
         )
         """)
 
+def check_duplicates(title, author):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    with conn:
+        cursor.execute("""
+            SELECT * FROM books
+            WHERE title = ? COLLATE NOCASE
+            AND author = ? COLLATE NOCASE
+                       """, (title, author))
+        result = cursor.fetchone()
+    conn.close()
+
+    return result
+
 def add_book(title: str, author: str, url: str, tags, description) -> None:
     """
     Adiciona um novo livro ao banco de dados.
@@ -69,6 +83,13 @@ def add_book(title: str, author: str, url: str, tags, description) -> None:
         
     Nota: Usa parâmetros nomeados (?) para prevenir injeção de SQL
     """
+
+    duplicate = check_duplicates(title, author)
+
+    if duplicate:
+        console.print(Panel("[bold yellow]⚠ Livro já existe na biblioteca![/bold yellow]"))
+        return False
+    
     conn: sqlite3.Connection = get_db_connection()
     with conn:  # Garante que as alterações serão salvas (commit) ao final do bloco
         conn.execute("""
