@@ -1,6 +1,5 @@
 import webbrowser
 import database
-import os
 import click
 from rich.table import Table
 from rich.console import Console
@@ -11,10 +10,10 @@ from rich.text import Text
 console = Console()
 
 @click.group()
-def cli() -> None:
+def cli():
     database.create_tables()
 
-def create_rich_table(books, title) -> Table:
+def create_rich_table(books, title):
     table = Table(
         title = title,
         show_header = True,
@@ -31,14 +30,12 @@ def create_rich_table(books, title) -> Table:
     table.add_column("Tags", style="yellow", width = 17, justify = "center")
     table.add_column("Adicionado em", style="cyan", width = 12, justify = "center")
         
-    books: list[tuple] = database.list_books()
-
     for book in books:
-        book_id: int = book[0]
-        title: str = book[1]
-        author: str = book[2]
-        tags: str = book[4]
-        created_at: str = book[6]
+        book_id: int = book['id']
+        title: str = book['title']
+        author: str = book['author']
+        tags: str = book['tags']
+        created_at: str = book['created_at']
 
         title_text = Text(title)
         title_text.truncate(30, overflow = "ellipsis")
@@ -59,7 +56,7 @@ def create_rich_table(books, title) -> Table:
     return table
 
 @cli.command(help = "Adiciona um novo livro (título, autor, URL) à biblioteca.")
-def add() -> None:
+def add():
     name = Prompt.ask("[bold white] Nome do livro[/bold white]")
     author = Prompt.ask("[bold white] Autor[/bold white]")
     url = Prompt.ask("[bold white] URL[/bold white]")
@@ -77,7 +74,7 @@ def add() -> None:
 
 @cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
 def list_books():
-    total_books: int = database.book_count()
+    total_books = database.book_count()
     if total_books == 0:
         console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
         return False
@@ -86,13 +83,13 @@ def list_books():
     table_title = "B I B L I O T E C A"
     table = create_rich_table(books, table_title)
     console.print(table)
-
+    
     return True
 
 @cli.command(name = "read", help = "Abre a URL de um livro no navegador usando seu ID.")
 @click.argument("book_id", type = int)
-def open(book_id) -> None:
-    url: str | None = database.open_book(book_id)
+def open(book_id):
+    url = database.open_book(book_id)
     if url:
         console.print(Panel(f"[green] Abrindo livro ID {book_id}...[/green]"))
         webbrowser.open(url)
@@ -102,7 +99,7 @@ def open(book_id) -> None:
 @cli.command(name = "delete", help = "Deleta um livro da biblioteca usando seu ID.")
 @click.argument("book_id", type = int)
 @click.option('--force', '-f', is_flag = True, help = 'Deleta sem confirmação')
-def delete(book_id: int, force: bool) -> None:
+def delete(book_id: int, force: bool):
     if not force:
         if click.confirm(f"Tem certeza que deseja deletar livro com ID - {book_id}"):
             database.delete_book(book_id)
@@ -114,7 +111,7 @@ def delete(book_id: int, force: bool) -> None:
 @click.option("--title", "-t", is_flag = True, help = "Busca apenas no título")
 @click.option("--author", "-a", is_flag = True, help = "Busca apenas no autor")
 @click.option("--tag", "-g", is_flag = True, help = "Busca apenas nas tags")
-def search(term: str, title, author, tag) -> None:
+def search(term, title, author, tag):
 
     if title:
         search_type = "title"
@@ -129,7 +126,11 @@ def search(term: str, title, author, tag) -> None:
         search_type = "all"
         search_label = "TODOS OS CAMPOS"
 
-    books: list[tuple] = database.search_books(term, search_type)
+    books = database.search_books(term, search_type)
+
+    if not books:
+        console.print(Panel(f"[yellow] Nenhum livro encontrado para [bold white]'{term}'[/bold white][/yellow]"))
+        return
     
     table_title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)})"
     table = create_rich_table(books, table_title)
@@ -145,7 +146,7 @@ def search(term: str, title, author, tag) -> None:
 @click.option("--description", "-d", help = "Nova Descrição")
 def edit(book_id, title, author, url, tags, description):
     if not any([title, author, url, tags, description]):
-        console.print(Panel(f"[red] Forneça pelo menos algum campo para atualizar (--title, --author, --url)[/red]"))
+        console.print(Panel(f"[bold red] Forneça pelo menos algum campo para atualizar (--title, --author, --url, --tags, --description)[/bold red]"))
         return
     database.update(book_id, title, author, url, tags, description)
 
@@ -158,13 +159,13 @@ def detail(book_id):
         console.print(Panel(f" [bold red]Livro não encontrado[/bold red]"))
         return
 
-    book_id = book[0]
-    title = book[1]
-    author = book[2]
-    url = book[3]
-    tags = book[4] if len(book) > 4 else None
-    description = book[5] if len(book) > 5 else None
-    created_at = book[6] if len(book) > 6 else book[4]
+    book_id = book['id']
+    title = book['title']
+    author = book['author']
+    url = book['url']
+    tags = book['tags']
+    description = book['description']
+    created_at = book['created_at']
 
     info_text = f"""[bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
 [bold cyan]Autor:[/bold cyan]  [bold white]{author}[/bold white]
@@ -177,7 +178,7 @@ def detail(book_id):
         info_text, 
         title = f"[bold]ID - {book_id}[/bold]", 
         border_style = "blue",
-        padding = (1, 2)  # (vertical, horizontal) padding
+        padding = (1, 2)
     ))
 def main():
     cli()
