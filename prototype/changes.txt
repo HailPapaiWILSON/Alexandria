@@ -1,0 +1,751 @@
+diff --git a/prototype/__pycache__/database.cpython-313.pyc b/prototype/__pycache__/database.cpython-313.pyc
+index ad6585f..833474b 100644
+Binary files a/prototype/__pycache__/database.cpython-313.pyc and b/prototype/__pycache__/database.cpython-313.pyc differ
+diff --git a/prototype/database.py b/prototype/database.py
+index 4a4e45d..721c3ad 100644
+--- a/prototype/database.py
++++ b/prototype/database.py
+@@ -1,220 +1,311 @@
+ import sqlite3
+ import os
+ from rich.console import Console
+ from rich.panel import Panel
+ 
+ console = Console()
+ 
+ APP_NAME = "alexandria"
+ DB_NAME = "alexandria.db"
+ 
+ def get_path():
+     if os.name == "nt":
+         app_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', APP_NAME)
+     else:
+         app_dir = os.path.join(os.path.expanduser('~'), '.config', APP_NAME)
+ 
+-    os.makedirs(app_dir, exist_ok = True)
+-
++    os.makedirs(app_dir, exist_ok=True)
+     full_db_path = os.path.join(app_dir, DB_NAME)
+-
+     return full_db_path
+ 
+ DB_PATH = get_path()
+ 
+ def get_db_connection():
+     try:
+         conn = sqlite3.connect(DB_PATH)
+         conn.row_factory = sqlite3.Row
++        conn.execute("PRAGMA foreign_keys = ON")
+         return conn
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao connectar ao banco de dados: {e}[/bold red]"))
++        console.print(Panel(f"[bold red] Erro ao conectar ao banco de dados: {e}[/bold red]"))
+         raise
+ 
+ def create_tables():
+-    conn = get_db_connection()
+-    with conn:
+-        conn.execute("""
++    with get_db_connection() as conn:
++        cursor = conn.cursor()
++        cursor.execute("""
+         CREATE TABLE IF NOT EXISTS books (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             title TEXT NOT NULL,
+             author TEXT NOT NULL,
+             url TEXT NOT NULL,
+-            tags TEXT,
+             description TEXT,
+             created_at TEXT DEFAULT (date('now', 'localtime'))
+         )
+         """)
+ 
+-def check_duplicates(title, author):
++        cursor.execute("""
++        CREATE TABLE IF NOT EXISTS tags (
++            id INTEGER PRIMARY KEY AUTOINCREMENT,
++            name TEXT NOT NULL UNIQUE COLLATE NOCASE
++        )
++        """)
++
++        cursor.execute("""
++        CREATE TABLE IF NOT EXISTS book_tags (
++            book_id INTEGER NOT NULL,
++            tag_id INTEGER NOT NULL,
++            PRIMARY KEY (book_id, tag_id),
++            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
++            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
++        )
++        """)
++
++def check_duplicates(conn, title, author):
++    """Check for duplicates using existing connection"""
++    try:
++        cursor = conn.cursor()
++        cursor.execute("""
++            SELECT * FROM books
++            WHERE title = ? COLLATE NOCASE
++            AND author = ? COLLATE NOCASE
++                       """, (title, author))
++        return cursor.fetchone()
++    except sqlite3.Error as e:
++        raise Exception(f"Erro ao verificar duplicatas: {e}")
++
++def create_or_get_tag(conn, tag_name):
++    """Create or get tag using existing connection"""
++    cursor = conn.cursor()
++    
++    tag_name = tag_name.strip().lower()
++
++    cursor.execute("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (tag_name,))
++    result = cursor.fetchone()
++
++    if result:
++        return result['id']
++
++    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
++    return cursor.lastrowid
++
++def add_book(title, author, url, tags, description):
+     try:
+         with get_db_connection() as conn:
++            # Check duplicates within the same connection
++            duplicate = check_duplicates(conn, title, author)
++            if duplicate:
++                return {
++                    "success": False,
++                    "message": "Book already exists",
++                    "duplicate": True,
++                    "book_id": duplicate['id']
++                }
++            
+             cursor = conn.cursor()
+             cursor.execute("""
+-                SELECT * FROM books
+-                WHERE title = ? COLLATE NOCASE
+-                AND author = ? COLLATE NOCASE
+-                           """, (title, author))
+-        return cursor.fetchone()
++                INSERT INTO books (title, author, url, description)
++                VALUES (?, ?, ?, ?)   
++            """, (title, author, url, description))
++            book_id = cursor.lastrowid
++
++            if tags:
++                for tag in tags:
++                    if tag.strip():
++                        tag_id = create_or_get_tag(conn, tag)
++                        cursor.execute("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", (book_id, tag_id))
++    
++        return {
++            "success": True,
++            "message": f"'{title}' by '{author}' added successfully",
++            "book_id": book_id
++        }
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao verificar duplicatas: {e}[/bold red]"))
+-        return None
++        return {
++            "success": False,
++            "message": f"Error adding book: {e}"
++        }
+ 
+-def add_book(title, author, url, tags, description):
++def get_book_tags(book_id):
+     try:
+-        duplicate = check_duplicates(title, author)
+-        if duplicate:
+-            console.print(Panel("[bold yellow] Livro já existe![/bold yellow]"))
+-            return False
+-        
+         with get_db_connection() as conn:
+-            conn.execute("""
+-                INSERT INTO books (title, author, url, tags, description)
+-                VALUES (?, ?, ?, ?, ?)   
+-            """, (title, author, url, tags, description))
+-        
+-        console.print(Panel(f"[bold blue]' {title}'[/bold blue] por [bold]{author}[/bold] [green]adicionado![/green]"))
+-        return True
++            cursor = conn.cursor()
++
++            cursor.execute("""
++                SELECT t.name
++                FROM tags t
++                JOIN book_tags bt ON t.id = bt.tag_id
++                WHERE bt.book_id = ?
++                ORDER by t.name
++            """, (book_id,))
++            return [row[0] for row in cursor.fetchall()]
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao adicionar livro: {e}[/bold red]"))
+-        return False
++        raise Exception(f"Error fetching tags for book {book_id}: {e}")
+ 
+ def book_count():
+     try:
+         with get_db_connection() as conn:
+             cursor = conn.cursor()
+             cursor.execute("SELECT COUNT(*) FROM books")
+-        return cursor.fetchone()[0]
++            return cursor.fetchone()[0]
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao conttar livros: {e}[/bold red]"))
+-        return 0
+-
+-def list_books():
++        raise Exception(f"Error counting books: {e}")
++              
++def list_books(include_tags=True):
+     try:
+         with get_db_connection() as conn:
+             cursor = conn.cursor()
+             cursor.execute("SELECT * FROM books ORDER BY created_at DESC")
+-            return cursor.fetchall()
+-    except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao listar livros: {e}[/bold red]"))
+-        return []
++            books = [dict(row) for row in cursor.fetchall()]
+ 
++            if include_tags:
++                for book in books:
++                    book['tags'] = get_book_tags(book['id'])
++            return books
++    except sqlite3.Error as e:
++        raise Exception(f"Error listing books: {e}")
++    
+ def delete_book(book_id: int): 
+     try:
+         with get_db_connection() as conn:
+             cursor = conn.cursor()  
+             cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
+             affected = cursor.rowcount
+         
+         if affected == 0:
+-            console.print(Panel("[yellow] Livro não encontrado.[/yellow]"))
+-            return False
++            return {
++                "success": False,
++                "message": "Book not found"
++            }
+         else:
+-            console.print(Panel(f"[bold red] Livro com ID {book_id} removido da sua biblioteca.[/bold red]"))
+-            return True
++            return {
++                "success": True,
++                "message": f"Book {book_id} deleted"
++            }
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao remover livros: {e}[/bold red]"))
+-        return False
++        return {"success": False, "message": f"Error deleting book: {e}"}
+ 
+-def open_book(book_id: int) -> str | None:
++def search_books(term: str, search_type="all"):
+     try:
+-        conn = get_db_connection()
+         with get_db_connection() as conn:
+             cursor = conn.cursor()
+-            cursor.execute("SELECT url FROM books WHERE id = ?", (book_id,))
+-            result = cursor.fetchone()
+-
+-        if result:
+-            return result['url']
+-        return None
+-    except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao buscar URL para livro (ID {book_id}): {e}[/bold red]"))
+-        return None
+-
+-def search_books(term: str, search_type = "all"):
+-    
+-    try:
+-        with get_db_connection() as conn:
+-            cursor: sqlite3.Cursor = conn.cursor()
+-            search_term: str = f"%{term}%"
++            search_term = f"%{term}%"
+             
+             if search_type == "title":
+                 cursor.execute("SELECT * FROM books WHERE title LIKE ? COLLATE NOCASE", (search_term,))
+             
+             elif search_type == "author":
+                 cursor.execute("SELECT * FROM books WHERE author LIKE ? COLLATE NOCASE", (search_term,))
+                 
+             elif search_type == "tag":
+-                cursor.execute("SELECT * FROM books WHERE tag LIKE ? COLLATE NOCASE", (search_term,))
++                cursor.execute("""
++                    SELECT DISTINCT b.*
++                    FROM books b
++                    JOIN book_tags bt ON b.id = bt.book_id
++                    JOIN tags t ON bt.tag_id = t.id
++                    WHERE t.name LIKE ? COLLATE NOCASE
++                """, (search_term,))
+             else:
+                 cursor.execute("""
+-                SELECT * FROM books
+-                WHERE title LIKE ? COLLATE NOCASE
+-                OR author LIKE ? COLLATE NOCASE
+-                OR tags LIKE ? COLLATE NOCASE
+-            """, (search_term, search_term, search_term))
+-            books = cursor.fetchall()
+-        return books
++                    SELECT DISTINCT b.*
++                    FROM books b
++                    LEFT JOIN book_tags bt ON b.id = bt.book_id
++                    LEFT JOIN tags t ON bt.tag_id = t.id
++                    WHERE b.title LIKE ? COLLATE NOCASE
++                    OR b.author LIKE ? COLLATE NOCASE
++                    OR t.name LIKE ? COLLATE NOCASE
++                """, (search_term, search_term, search_term))
++            
++            books = [dict(row) for row in cursor.fetchall()]
++            
++            for book in books:
++                book['tags'] = get_book_tags(book['id'])
++            
++            return books
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao buscar livros ('{term}', type: {search_type}): {e}[/bold red]"))
+-        return []
++        raise Exception(f"Error searching books: {e}")
+ 
+-def update(book_id, title, author, url, tags, description):
+-    
++def get_book_details(book_id):
+     try:
+         with get_db_connection() as conn:
+             cursor = conn.cursor()
++            cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
++            result = cursor.fetchone()
++            
++            if result:
++                book = dict(result)
++                book['tags'] = get_book_tags(book_id)
++                return book
++            return None
++    except sqlite3.Error as e:
++        raise Exception(f"Error fetching book details: {e}")
+ 
+-            update = []
+-            values = []
++def get_or_create_tag(conn, tag_name):
++    """Helper function for update_book"""
++    cursor = conn.cursor()
++    tag_name = tag_name.strip().lower()
+ 
++    cursor.execute("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (tag_name,))
++    result = cursor.fetchone()
++
++    if result:
++        return result['id']
++
++    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
++    return cursor.lastrowid
++
++def update_book(book_id, title, author, url, tags, description):
++    try:
++        with get_db_connection() as conn:
++            cursor = conn.cursor()
++            
++            updates = []
++            values = []
++            
+             if title is not None:
+-                update.append("title = ?")
++                updates.append("title = ?")
+                 values.append(title)
+             if author is not None:
+-                update.append("author = ?")
++                updates.append("author = ?")
+                 values.append(author)
+             if url is not None:
+-                update.append("url = ?")
++                updates.append("url = ?")
+                 values.append(url)
+-            if tags is not None:
+-                update.append("tags = ?")
+-                values.append(tags)
+             if description is not None:
+-                update.append("description = ?")
++                updates.append("description = ?")
+                 values.append(description)
++            
++            if updates:
++                values.append(book_id)
++                query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
++                cursor.execute(query, tuple(values))
++            
++            if tags is not None:
++                cursor.execute("DELETE FROM book_tags WHERE book_id = ?", (book_id,))
+                 
+-            if not update:
+-                console.print(Panel(f"[yellow] Nenhum campo para atualizar.[/yellow]"))
+-                return
+-
+-            values.append(book_id)
+-            query = f"UPDATE books SET {','.join(update)} WHERE id = ?"
+-
+-            cursor.execute(query, tuple(values))
+-            affected = cursor.rowcount
+-
+-            conn.close()
+-
+-            if affected == 0:
+-                console.print(Panel(f"[yellow] Livro nao encontrado[/yellow]"))
++                for tag in tags:
++                    if tag.strip():
++                        tag_id = get_or_create_tag(conn, tag)
++                        cursor.execute("""
++                            INSERT INTO book_tags (book_id, tag_id)
++                            VALUES (?, ?)
++                        """, (book_id, tag_id))
++            
++            affected = cursor.rowcount if not updates else 1
++            
++            if affected == 0 and not tags:
++                return {
++                    "success": False,
++                    "message": "Book not found"
++                }
+             else:
+-                console.print(Panel(f" Livro ID - {book_id} [green]atualizado com successo[/green]"))
+-    except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao atualizar livro (ID {book_id}): {e}[/bold red]"))
+-        return False
+-
+-def get_book_details(book_id):
+-    try:
+-        with get_db_connection() as conn:
+-            cursor= conn.cursor()
+-            cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+-            result = cursor.fetchone()
+-        if result:
+-            return result
+-        else:
+-            console.print(Panel(f"[yellow]Detalhes para livro com ID {book_id} não encontrados.[/yellow]"))
+-            return None
++                return {
++                    "success": True,
++                    "message": f"Book {book_id} updated successfully"
++                }
++                
+     except sqlite3.Error as e:
+-        console.print(Panel(f"[bold red] Erro ao buscar detalhes para livro (ID {book_id}): {e}[/bold red]"))
+-        return None
++        return {
++            "success": False,
++            "message": f"Error updating book: {e}"
++        }
+diff --git a/prototype/main.py b/prototype/main.py
+index 0961f97..29cedea 100755
+--- a/prototype/main.py
++++ b/prototype/main.py
+@@ -1,186 +1,209 @@
+ import webbrowser
+-import database
+ import click
+-from rich.table import Table
+ from rich.console import Console
+-from rich.prompt import Prompt, Confirm
+ from rich.panel import Panel
++from rich.prompt import Prompt
++from rich.table import Table
+ from rich.text import Text
+ 
++import database
++
+ console = Console()
+ 
+ @click.group()
+ def cli():
+     database.create_tables()
+ 
+-def create_rich_table(books, title):
++def create_rich_table(books, table_title):
+     table = Table(
+-        title = title,
+-        show_header = True,
+-        header_style = "bold cyan",
+-        title_style = "bold blue",
+-        show_lines = True,
+-        border_style = "blue",
+-        padding = (0, 2)
++        title=table_title,
++        show_header=True,
++        header_style="bold cyan",
++        title_style="bold blue",
++        show_lines=True,
++        border_style="blue",
++        padding=(0, 2),
+     )
+ 
+-    table.add_column("ID", style="white", width = 4, justify = "center")
+-    table.add_column("Titulo", style="white", width = 30, justify = "center")
+-    table.add_column("Autor", style="green", width = 17, justify = "center")
+-    table.add_column("Tags", style="yellow", width = 17, justify = "center")
+-    table.add_column("Adicionado em", style="cyan", width = 12, justify = "center")
+-        
++    table.add_column("ID", style="white", width=4, justify="center")
++    table.add_column("Titulo", style="white", width=30, justify="center")
++    table.add_column("Autor", style="green", width=17, justify="center")
++    table.add_column("Tags", style="yellow", width=17, justify="center")
++    table.add_column("Adicionado em", style="cyan", width=12, justify="center")
++
+     for book in books:
+-        book_id: int = book['id']
+-        title: str = book['title']
+-        author: str = book['author']
+-        tags: str = book['tags']
+-        created_at: str = book['created_at']
++        book_id: int = book["id"]
++        title: str = book["title"]
++        author: str = book["author"]
++        url = book["url"]
++        tags = book["tags"]
++        created_at: str = book["created_at"]
+ 
+-        title_text = Text(title)
+-        title_text.truncate(30, overflow = "ellipsis")
++        hyperlink = f"\033]8;;{url}\033\\{title}\033]8;;\033\\"
++
++        title_text = Text.from_ansi(hyperlink)
++        title_text.truncate(30, overflow="ellipsis")
+ 
+         author_text = Text(author)
+-        author_text.truncate(17, overflow = "ellipsis")
+-
+-        tags_text = Text(tags)
+-        tags_text.truncate(17, overflow = "ellipsis")
+-
+-        table.add_row(
+-            str(book_id),
+-            title_text,
+-            author_text,
+-            tags_text,
+-            created_at
+-        )
++        author_text.truncate(17, overflow="ellipsis")
++
++        tags_str = ", ".join(tags) if tags else "Sem Tags"
++        tags_text = Text(tags_str)
++        tags_text.truncate(17, overflow="ellipsis")
++
++        table.add_row(str(book_id), title_text, author_text, tags_text, created_at)
+     return table
+ 
+-@cli.command(help = "Adiciona um novo livro (título, autor, URL) à biblioteca.")
++@cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
+ def add():
+     name = Prompt.ask("[bold white] Nome do livro[/bold white]")
++    if not name.strip():
++        console.print(Panel("[bold red]O título não pode estar vazio.[/bold red]"))
++        return
++
+     author = Prompt.ask("[bold white] Autor[/bold white]")
++    if not author.strip():
++        console.print(Panel("[bold red]O autor não pode estar vazio.[/bold red]"))
++        return
++
+     url = Prompt.ask("[bold white] URL[/bold white]")
+-    tags = Prompt.ask("[bold white] Tags[/bold white]")
+-    description = Prompt.ask("[bold white] Descrição[/bold white]")
+-    
+-    if not name or not author or not url:
+-        console.print(Panel("[bold red] Por favor, insira um nome, autor e URL válidos.[/bold red]"))
++    if not url.strip():
++        console.print(Panel("[bold red]O URL não pode estar vazio.[/bold red]"))
+         return
+ 
++    tags_input = Prompt.ask("[bold white] Tags (separadas por vírgula)[/bold white]")
++    description = Prompt.ask("[bold white] Descrição[/bold white]")
++
+     description = description if description.strip() else None
+-    tags = tags if tags.strip() else None
+-    
+-    database.add_book(name, author, url, tags, description)
++    tags = [tag.strip() for tag in tags_input.split(",")] if tags_input.strip() else []
++
++    result = database.add_book(name, author, url, tags, description)
++
++    if result["success"]:
++        console.print(Panel(f"[green]{result['message']}[/green]"))
++    else:
++        console.print(Panel(f"[red]{result['message']}[/red]"))
+ 
+-@cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
++@cli.command(name="list", help="Lista todos os livros na biblioteca.")
+ def list_books():
+     total_books = database.book_count()
+     if total_books == 0:
+         console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
+         return False
+-    
++
+     books = database.list_books()
+     table_title = "B I B L I O T E C A"
+     table = create_rich_table(books, table_title)
+     console.print(table)
+-    
+-    return True
+ 
+-@cli.command(name = "read", help = "Abre a URL de um livro no navegador usando seu ID.")
+-@click.argument("book_id", type = int)
+-def open(book_id):
+-    url = database.open_book(book_id)
+-    if url:
+-        console.print(Panel(f"[green] Abrindo livro ID {book_id}...[/green]"))
+-        webbrowser.open(url)
+-    else:
+-        console.print(Panel("[bold red] Livro não encontrado.[/bold red]"))
++    return True
+ 
+-@cli.command(name = "delete", help = "Deleta um livro da biblioteca usando seu ID.")
+-@click.argument("book_id", type = int)
+-@click.option('--force', '-f', is_flag = True, help = 'Deleta sem confirmação')
++@cli.command(name="delete", help="Deleta um livro da biblioteca usando seu ID.")
++@click.argument("book_id", type=int)
++@click.option("--force", "-f", is_flag=True, help="Deleta sem confirmação")
+ def delete(book_id: int, force: bool):
+     if not force:
+-        if click.confirm(f"Tem certeza que deseja deletar livro com ID - {book_id}"):
+-            database.delete_book(book_id)
+-    else:   
+-        database.delete_book(book_id)
+-
+-@cli.command(name = "search" ,help = "Busca livros por um termo no título ou autor(Case Insensitive).")
+-@click.argument("term", type = str)
+-@click.option("--title", "-t", is_flag = True, help = "Busca apenas no título")
+-@click.option("--author", "-a", is_flag = True, help = "Busca apenas no autor")
+-@click.option("--tag", "-g", is_flag = True, help = "Busca apenas nas tags")
++        if click.confirm(f"Tem certeza que deseja deletar livro com ID - {book_id}?"):
++            result = database.delete_book(book_id)
++            if result["success"]:
++                console.print(Panel(f"[green]{result['message']}[/green]"))
++            else:
++                console.print(Panel(f"[red]{result['message']}[/red]"))
++    else:
++        result = database.delete_book(book_id)
++        if result["success"]:
++            console.print(Panel(f"[green]{result['message']}[/green]"))
++        else:
++            console.print(Panel(f"[red]{result['message']}[/red]"))
++
++@cli.command(name="search", help="Busca livros por um termo no título ou autor(Case Insensitive).",)
++@click.argument("term", type=str)
++@click.option("--title", "-t", is_flag=True, help="Busca apenas no título")
++@click.option("--author", "-a", is_flag=True, help="Busca apenas no autor")
++@click.option("--tag", "-g", is_flag=True, help="Busca apenas nas tags")
+ def search(term, title, author, tag):
+-
+     if title:
+         search_type = "title"
+         search_label = "TÍTULO"
+     elif author:
+         search_type = "author"
+         search_label = "AUTOR"
+     elif tag:
+         search_type = "tag"
+         search_label = "TAGS"
+     else:
+         search_type = "all"
+         search_label = "TODOS OS CAMPOS"
+ 
+     books = database.search_books(term, search_type)
+ 
+     if not books:
+-        console.print(Panel(f"[yellow] Nenhum livro encontrado para [bold white]'{term}'[/bold white][/yellow]"))
++        console.print(Panel(
++                f"[yellow] Nenhum livro encontrado para [bold white]'{term}'[/bold white][/yellow]"))
+         return
+-    
++
+     table_title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)})"
+     table = create_rich_table(books, table_title)
+-    
++
+     console.print(table)
+ 
+-@cli.command(help = "Atualiza informaçoes de um livros existente.")
+-@click.argument("book_id", type = int)
+-@click.option("--title", "-t", help = "Novo Titulo")
+-@click.option("--author", "-a", help = "Novo Autor")
+-@click.option("--url", "-u", help = "Novo URL")
+-@click.option("--tags", "-g", help = "Novas Tags (separadas por vírgula)")
+-@click.option("--description", "-d", help = "Nova Descrição")
++@cli.command(help="Atualiza informaçoes de um livros existente.")
++@click.argument("book_id", type=int)
++@click.option("--title", "-t", help="Novo Titulo")
++@click.option("--author", "-a", help="Novo Autor")
++@click.option("--url", "-u", help="Novo URL")
++@click.option("--tags", "-g", help="Novas Tags (separadas por vírgula)")
++@click.option("--description", "-d", help="Nova Descrição")
+ def edit(book_id, title, author, url, tags, description):
+     if not any([title, author, url, tags, description]):
+-        console.print(Panel(f"[bold red] Forneça pelo menos algum campo para atualizar (--title, --author, --url, --tags, --description)[/bold red]"))
++        console.print(Panel(
++                "[bold red] Forneça pelo menos algum campo para atualizar (--title, --author, --url, --tags, --description)[/bold red]"))
+         return
+-    database.update(book_id, title, author, url, tags, description)
+ 
+-@cli.command(help = "Mostra informações detalhadas de um livro.")
+-@click.argument("book_id", type = int)
++    tags_list = None
++    if tags is not None:
++        tags_list = [tag.strip() for tag in tags.split(",")] if tags.strip() else []
++
++    result = database.update_book(book_id, title, author, url, tags_list, description)
++    if result["success"]:
++        console.print(Panel(f"[green]{result['message']}[/green]"))
++    else:
++        console.print(Panel(f"[red]{result['message']}[/red]"))
++
++@cli.command(help="Mostra informações detalhadas de um livro.")
++@click.argument("book_id", type=int)
+ def detail(book_id):
+     book = database.get_book_details(book_id)
+ 
+     if not book:
+-        console.print(Panel(f" [bold red]Livro não encontrado[/bold red]"))
++        console.print(Panel(" [bold red]Livro não encontrado[/bold red]"))
+         return
+ 
+-    book_id = book['id']
+-    title = book['title']
+-    author = book['author']
+-    url = book['url']
+-    tags = book['tags']
+-    description = book['description']
+-    created_at = book['created_at']
++    book_id = book["id"]
++    title = book["title"]
++    author = book["author"]
++    url = book["url"]
++    tags = ", ".join(book["tags"]) if book.get("tags") else "Sem tags"
++    description = book["description"]
++    created_at = book["created_at"]
+ 
+     info_text = f"""[bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
+ [bold cyan]Autor:[/bold cyan]  [bold white]{author}[/bold white]
+ [bold cyan]URL:[/bold cyan]  [bold white]{url}[/bold white]
+-[bold cyan]Tags:[/bold cyan]  [bold white]{tags or "Sem tags"}[/bold white]
++[bold cyan]Tags:[/bold cyan]  [bold white]{tags}[/bold white]
+ [bold cyan]Descrição:[/bold cyan]  [bold white]{description or "Nenhuma descrição"}[/bold white]
+ [bold cyan]Adicionado em:[/bold cyan]  [bold white]{created_at}[/bold white]"""
+-    
++
+     console.print(Panel(
+-        info_text, 
+-        title = f"[bold]ID - {book_id}[/bold]", 
+-        border_style = "blue",
+-        padding = (1, 2)
+-    ))
++            info_text,
++            title=f"[bold]ID - {book_id}[/bold]",
++            border_style="blue",
++            padding=(1, 2),
++        ))
++
+ def main():
+     cli()
++    
+ if __name__ == "__main__":
+     main()
++

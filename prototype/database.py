@@ -14,10 +14,8 @@ def get_path():
     else:
         app_dir = os.path.join(os.path.expanduser('~'), '.config', APP_NAME)
 
-    os.makedirs(app_dir, exist_ok = True)
-
+    os.makedirs(app_dir, exist_ok=True)
     full_db_path = os.path.join(app_dir, DB_NAME)
-
     return full_db_path
 
 DB_PATH = get_path()
@@ -26,79 +24,147 @@ def get_db_connection():
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao connectar ao banco de dados: {e}[/bold red]"))
+        console.print(Panel(f"[bold red] Erro ao conectar ao banco de dados: {e}[/bold red]"))
         raise
 
 def create_tables():
-    conn = get_db_connection()
-    with conn:
-        conn.execute("""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             author TEXT NOT NULL,
             url TEXT NOT NULL,
-            tags TEXT,
             description TEXT,
             created_at TEXT DEFAULT (date('now', 'localtime'))
         )
         """)
 
-def check_duplicates(title, author):
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE
+        )
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS book_tags (
+            book_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            PRIMARY KEY (book_id, tag_id),
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+        )
+        """)
+
+def check_duplicates(conn, title, author):
+    """Check for duplicates using existing connection"""
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM books
-                WHERE title = ? COLLATE NOCASE
-                AND author = ? COLLATE NOCASE
-                           """, (title, author))
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM books
+            WHERE title = ? COLLATE NOCASE
+            AND author = ? COLLATE NOCASE
+                       """, (title, author))
         return cursor.fetchone()
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao verificar duplicatas: {e}[/bold red]"))
-        return None
+        raise Exception(f"Erro ao verificar duplicatas: {e}")
+
+def create_or_get_tag(conn, tag_name):
+    """Create or get tag using existing connection"""
+    cursor = conn.cursor()
+    
+    tag_name = tag_name.strip().lower()
+
+    cursor.execute("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (tag_name,))
+    result = cursor.fetchone()
+
+    if result:
+        return result['id']
+
+    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+    return cursor.lastrowid
 
 def add_book(title, author, url, tags, description):
     try:
-        duplicate = check_duplicates(title, author)
-        if duplicate:
-            console.print(Panel("[bold yellow] Livro já existe![/bold yellow]"))
-            return False
-        
         with get_db_connection() as conn:
-            conn.execute("""
-                INSERT INTO books (title, author, url, tags, description)
-                VALUES (?, ?, ?, ?, ?)   
-            """, (title, author, url, tags, description))
-        
-        console.print(Panel(f"[bold blue]' {title}'[/bold blue] por [bold]{author}[/bold] [green]adicionado![/green]"))
-        return True
+            # Check duplicates within the same connection
+            duplicate = check_duplicates(conn, title, author)
+            if duplicate:
+                return {
+                    "success": False,
+                    "message": "Book already exists",
+                    "duplicate": True,
+                    "book_id": duplicate['id']
+                }
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO books (title, author, url, description)
+                VALUES (?, ?, ?, ?)   
+            """, (title, author, url, description))
+            book_id = cursor.lastrowid
+
+            if tags:
+                for tag in tags:
+                    if tag.strip():
+                        tag_id = create_or_get_tag(conn, tag)
+                        cursor.execute("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", (book_id, tag_id))
+    
+        return {
+            "success": True,
+            "message": f"'{title}' by '{author}' added successfully",
+            "book_id": book_id
+        }
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao adicionar livro: {e}[/bold red]"))
-        return False
+        return {
+            "success": False,
+            "message": f"Error adding book: {e}"
+        }
+
+def get_book_tags(book_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT t.name
+                FROM tags t
+                JOIN book_tags bt ON t.id = bt.tag_id
+                WHERE bt.book_id = ?
+                ORDER by t.name
+            """, (book_id,))
+            return [row[0] for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        raise Exception(f"Error fetching tags for book {book_id}: {e}")
 
 def book_count():
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM books")
-        return cursor.fetchone()[0]
+            return cursor.fetchone()[0]
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao conttar livros: {e}[/bold red]"))
-        return 0
-
-def list_books():
+        raise Exception(f"Error counting books: {e}")
+              
+def list_books(include_tags=True):
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM books ORDER BY created_at DESC")
-            return cursor.fetchall()
-    except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao listar livros: {e}[/bold red]"))
-        return []
+            books = [dict(row) for row in cursor.fetchall()]
 
+            if include_tags:
+                for book in books:
+                    book['tags'] = get_book_tags(book['id'])
+            return books
+    except sqlite3.Error as e:
+        raise Exception(f"Error listing books: {e}")
+    
 def delete_book(book_id: int): 
     try:
         with get_db_connection() as conn:
@@ -107,36 +173,23 @@ def delete_book(book_id: int):
             affected = cursor.rowcount
         
         if affected == 0:
-            console.print(Panel("[yellow] Livro não encontrado.[/yellow]"))
-            return False
+            return {
+                "success": False,
+                "message": "Book not found"
+            }
         else:
-            console.print(Panel(f"[bold red] Livro com ID {book_id} removido da sua biblioteca.[/bold red]"))
-            return True
+            return {
+                "success": True,
+                "message": f"Book {book_id} deleted"
+            }
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao remover livros: {e}[/bold red]"))
-        return False
+        return {"success": False, "message": f"Error deleting book: {e}"}
 
-def open_book(book_id: int) -> str | None:
+def search_books(term: str, search_type="all"):
     try:
-        conn = get_db_connection()
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT url FROM books WHERE id = ?", (book_id,))
-            result = cursor.fetchone()
-
-        if result:
-            return result['url']
-        return None
-    except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao buscar URL para livro (ID {book_id}): {e}[/bold red]"))
-        return None
-
-def search_books(term: str, search_type = "all"):
-    
-    try:
-        with get_db_connection() as conn:
-            cursor: sqlite3.Cursor = conn.cursor()
-            search_term: str = f"%{term}%"
+            search_term = f"%{term}%"
             
             if search_type == "title":
                 cursor.execute("SELECT * FROM books WHERE title LIKE ? COLLATE NOCASE", (search_term,))
@@ -145,76 +198,114 @@ def search_books(term: str, search_type = "all"):
                 cursor.execute("SELECT * FROM books WHERE author LIKE ? COLLATE NOCASE", (search_term,))
                 
             elif search_type == "tag":
-                cursor.execute("SELECT * FROM books WHERE tag LIKE ? COLLATE NOCASE", (search_term,))
+                cursor.execute("""
+                    SELECT DISTINCT b.*
+                    FROM books b
+                    JOIN book_tags bt ON b.id = bt.book_id
+                    JOIN tags t ON bt.tag_id = t.id
+                    WHERE t.name LIKE ? COLLATE NOCASE
+                """, (search_term,))
             else:
                 cursor.execute("""
-                SELECT * FROM books
-                WHERE title LIKE ? COLLATE NOCASE
-                OR author LIKE ? COLLATE NOCASE
-                OR tags LIKE ? COLLATE NOCASE
-            """, (search_term, search_term, search_term))
-            books = cursor.fetchall()
-        return books
+                    SELECT DISTINCT b.*
+                    FROM books b
+                    LEFT JOIN book_tags bt ON b.id = bt.book_id
+                    LEFT JOIN tags t ON bt.tag_id = t.id
+                    WHERE b.title LIKE ? COLLATE NOCASE
+                    OR b.author LIKE ? COLLATE NOCASE
+                    OR t.name LIKE ? COLLATE NOCASE
+                """, (search_term, search_term, search_term))
+            
+            books = [dict(row) for row in cursor.fetchall()]
+            
+            for book in books:
+                book['tags'] = get_book_tags(book['id'])
+            
+            return books
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao buscar livros ('{term}', type: {search_type}): {e}[/bold red]"))
-        return []
-
-def update(book_id, title, author, url, tags, description):
-    
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            update = []
-            values = []
-
-            if title is not None:
-                update.append("title = ?")
-                values.append(title)
-            if author is not None:
-                update.append("author = ?")
-                values.append(author)
-            if url is not None:
-                update.append("url = ?")
-                values.append(url)
-            if tags is not None:
-                update.append("tags = ?")
-                values.append(tags)
-            if description is not None:
-                update.append("description = ?")
-                values.append(description)
-                
-            if not update:
-                console.print(Panel(f"[yellow] Nenhum campo para atualizar.[/yellow]"))
-                return
-
-            values.append(book_id)
-            query = f"UPDATE books SET {','.join(update)} WHERE id = ?"
-
-            cursor.execute(query, tuple(values))
-            affected = cursor.rowcount
-
-            conn.close()
-
-            if affected == 0:
-                console.print(Panel(f"[yellow] Livro nao encontrado[/yellow]"))
-            else:
-                console.print(Panel(f" Livro ID - {book_id} [green]atualizado com successo[/green]"))
-    except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao atualizar livro (ID {book_id}): {e}[/bold red]"))
-        return False
+        raise Exception(f"Error searching books: {e}")
 
 def get_book_details(book_id):
     try:
         with get_db_connection() as conn:
-            cursor= conn.cursor()
+            cursor = conn.cursor()
             cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
             result = cursor.fetchone()
-        if result:
-            return result
-        else:
-            console.print(Panel(f"[yellow]Detalhes para livro com ID {book_id} não encontrados.[/yellow]"))
+            
+            if result:
+                book = dict(result)
+                book['tags'] = get_book_tags(book_id)
+                return book
             return None
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao buscar detalhes para livro (ID {book_id}): {e}[/bold red]"))
-        return None
+        raise Exception(f"Error fetching book details: {e}")
+
+def get_or_create_tag(conn, tag_name):
+    """Helper function for update_book"""
+    cursor = conn.cursor()
+    tag_name = tag_name.strip().lower()
+
+    cursor.execute("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (tag_name,))
+    result = cursor.fetchone()
+
+    if result:
+        return result['id']
+
+    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+    return cursor.lastrowid
+
+def update_book(book_id, title, author, url, tags, description):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            updates = []
+            values = []
+            
+            if title is not None:
+                updates.append("title = ?")
+                values.append(title)
+            if author is not None:
+                updates.append("author = ?")
+                values.append(author)
+            if url is not None:
+                updates.append("url = ?")
+                values.append(url)
+            if description is not None:
+                updates.append("description = ?")
+                values.append(description)
+            
+            if updates:
+                values.append(book_id)
+                query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
+                cursor.execute(query, tuple(values))
+            
+            if tags is not None:
+                cursor.execute("DELETE FROM book_tags WHERE book_id = ?", (book_id,))
+                
+                for tag in tags:
+                    if tag.strip():
+                        tag_id = get_or_create_tag(conn, tag)
+                        cursor.execute("""
+                            INSERT INTO book_tags (book_id, tag_id)
+                            VALUES (?, ?)
+                        """, (book_id, tag_id))
+            
+            affected = cursor.rowcount if not updates else 1
+            
+            if affected == 0 and not tags:
+                return {
+                    "success": False,
+                    "message": "Book not found"
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": f"Book {book_id} updated successfully"
+                }
+                
+    except sqlite3.Error as e:
+        return {
+            "success": False,
+            "message": f"Error updating book: {e}"
+        }
