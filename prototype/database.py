@@ -74,21 +74,6 @@ def check_duplicates(conn, title, author):
     except sqlite3.Error as e:
         raise Exception(f"Erro ao verificar duplicatas: {e}")
 
-def create_or_get_tag(conn, tag_name):
-    """Create or get tag using existing connection"""
-    cursor = conn.cursor()
-    
-    tag_name = tag_name.strip().lower()
-
-    cursor.execute("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (tag_name,))
-    result = cursor.fetchone()
-
-    if result:
-        return result['id']
-
-    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
-    return cursor.lastrowid
-
 def add_book(title, author, url, tags, description):
     try:
         with get_db_connection() as conn:
@@ -112,7 +97,7 @@ def add_book(title, author, url, tags, description):
             if tags:
                 for tag in tags:
                     if tag.strip():
-                        tag_id = create_or_get_tag(conn, tag)
+                        tag_id = get_or_create_tag(conn, tag)
                         cursor.execute("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", (book_id, tag_id))
     
         return {
