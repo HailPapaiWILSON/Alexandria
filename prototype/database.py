@@ -72,7 +72,7 @@ def check_duplicates(conn, title, author):
                        """, (title, author))
         return cursor.fetchone()
     except sqlite3.Error as e:
-        raise Exception(f"Erro ao verificar duplicatas: {e}")
+        raise Exception(f"Erro ao verificar livros repetidos: {e}")
 
 def add_book(title, author, url, tags, description):
     try:
@@ -82,7 +82,7 @@ def add_book(title, author, url, tags, description):
             if duplicate:
                 return {
                     "success": False,
-                    "message": "Book already exists",
+                    "message": "Livro já esta armazenado",
                     "duplicate": True,
                     "book_id": duplicate['id']
                 }
@@ -102,13 +102,13 @@ def add_book(title, author, url, tags, description):
     
         return {
             "success": True,
-            "message": f"'{title}' by '{author}' added successfully",
+            "message": f"'{title}' por '{author}' salvo com sucesso",
             "book_id": book_id
         }
     except sqlite3.Error as e:
         return {
             "success": False,
-            "message": f"Error adding book: {e}"
+            "message": f"Erro ao adicionar livro: {e}"
         }
 
 def get_book_tags(book_id):
@@ -125,7 +125,7 @@ def get_book_tags(book_id):
             """, (book_id,))
             return [row[0] for row in cursor.fetchall()]
     except sqlite3.Error as e:
-        raise Exception(f"Error fetching tags for book {book_id}: {e}")
+        raise Exception(f"Erro ao buscar tags do livro {book_id}: {e}")
 
 def book_count():
     try:
@@ -134,7 +134,7 @@ def book_count():
             cursor.execute("SELECT COUNT(*) FROM books")
             return cursor.fetchone()[0]
     except sqlite3.Error as e:
-        raise Exception(f"Error counting books: {e}")
+        raise Exception(f"Erro ao contar livros: {e}")
               
 def list_books(include_tags=True):
     try:
@@ -148,9 +148,9 @@ def list_books(include_tags=True):
                     book['tags'] = get_book_tags(book['id'])
             return books
     except sqlite3.Error as e:
-        raise Exception(f"Error listing books: {e}")
+        raise Exception(f"Erro ao listar livros: {e}")
     
-def delete_book(book_id: int): 
+def delete_book(book_id: int):
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()  
@@ -160,15 +160,17 @@ def delete_book(book_id: int):
         if affected == 0:
             return {
                 "success": False,
-                "message": "Book not found"
+                "message": "Livro não encontrado"
             }
         else:
             return {
                 "success": True,
-                "message": f"Book {book_id} deleted"
+                "message": "Livro deletado com sucesso"
             }
     except sqlite3.Error as e:
-        return {"success": False, "message": f"Error deleting book: {e}"}
+        return {
+        "success": False, 
+        "message": f"Erro ao deletar livro: {e}"}
 
 def search_books(term: str, search_type="all"):
     try:
@@ -208,7 +210,7 @@ def search_books(term: str, search_type="all"):
             
             return books
     except sqlite3.Error as e:
-        raise Exception(f"Error searching books: {e}")
+        raise Exception(f"Erro ao pesquisar livros: {e}")
 
 def get_book_details(book_id):
     try:
@@ -223,10 +225,9 @@ def get_book_details(book_id):
                 return book
             return None
     except sqlite3.Error as e:
-        raise Exception(f"Error fetching book details: {e}")
+        raise Exception(f"Erro ao buscar detalhes do livro: {e}")
 
 def get_or_create_tag(conn, tag_name):
-    """Helper function for update_book"""
     cursor = conn.cursor()
     tag_name = tag_name.strip().lower()
 
@@ -281,16 +282,16 @@ def update_book(book_id, title, author, url, tags, description):
             if affected == 0 and not tags:
                 return {
                     "success": False,
-                    "message": "Book not found"
+                    "message": "Livro não encontrado"
                 }
             else:
                 return {
                     "success": True,
-                    "message": f"Book {book_id} updated successfully"
+                    "message": f"{book_id} atualizado com sucesso"
                 }
                 
     except sqlite3.Error as e:
         return {
             "success": False,
-            "message": f"Error updating book: {e}"
+            "message": f"Erro ao atualizar livro: {e}"
         }

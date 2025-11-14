@@ -11,10 +11,10 @@ import database
 console = Console()
 
 @click.group()
-def cli():
+def cli() -> None:
     database.create_tables()
 
-def create_rich_table(books, table_title):
+def create_rich_table(books: list[dict[str, str | int | list[str]]], table_title: str) -> Table:
     table = Table(
         title = table_title,
         show_header = True,
@@ -36,16 +36,16 @@ def create_rich_table(books, table_title):
         book_id: int = book["id"]
         title: str = book["title"]
         author: str = book["author"]
-        url = book["url"]
-        tags = book["tags"]
+        url: str = book["url"]
+        tags: list[str] = book["tags"]
         created_at: str = book["created_at"]
 
-        hyperlink = f"\033]8;;{url}\033\\{title}\033]8;;\033\\"
+        hyperlink: str = f"\033]8;;{url}\033\\{title}\033]8;;\033\\"
 
-        title_text = Text.from_ansi(hyperlink)
+        title_text: Text = Text.from_ansi(hyperlink)
 
-        tags_str = ", ".join(tags) if tags else "Sem Tags"
-        tags_text = Text(tags_str)
+        tags_str: str = ", ".join(tags) if tags else "Sem Tags"
+        tags_text: Text = Text(tags_str)
 
         table.add_row(str(book_id), title_text, author, tags_text, created_at)
     return table
@@ -98,8 +98,9 @@ def list_books():
 @click.argument("book_id", type = int)
 @click.option("--force", "-f", is_flag = True, help = "Deleta sem confirmação")
 def delete(book_id: int, force: bool):
+    book = database.get_book_details(book_id)
     if not force:
-        if click.confirm(f" Tem certeza que deseja deletar livro com ID - {book_id}?"):
+        if click.confirm(f" Tem certeza que deseja deletar '{book['title']}' de {book['author']}?"):
             result = database.delete_book(book_id)
             if result["success"]:
                 console.print(Panel(f"[green] {result['message']}[/green]"))
@@ -143,28 +144,43 @@ def search(term, title, author, tag):
 
     console.print(table)
 
-@cli.command(help = "Atualiza informaçoes de um livros existente.")
-@click.argument("book_id", type = int)
-@click.option("--title", "-t", help = "Novo Titulo")
-@click.option("--author", "-a", help = "Novo Autor")
-@click.option("--url", "-u", help = "Novo URL")
-@click.option("--tags", "-g", help = "Novas Tags (separadas por vírgula)")
-@click.option("--description", "-d", help = "Nova Descrição")
+@cli.command(help="Atualiza informações de um livro existente.")
+@click.argument("book_id", type=int)
+@click.option("--title", "-t", help="Novo título")
+@click.option("--author", "-a", help="Novo autor")
+@click.option("--url", "-u", help="Novo URL")
+@click.option("--tags", "-g", help="Substitui tags")
+@click.option("--description", "-d", help="Nova descrição")
 def edit(book_id, title, author, url, tags, description):
-    if not any([title, author, url, tags, description]):
-        console.print(Panel(
-                "[bold red] Forneça pelo menos algum campo para atualizar (--title, --author, --url, --tags, --description)[/bold red]"))
+    current = database.get_book_details(book_id)
+    if not current:
+        console.print(Panel(f"[red]❌ Livro ID {book_id} não encontrado.[/red]")) 
         return
-
-    tags_list = None
-    if tags is not None:
-        tags_list = [tag.strip() for tag in tags.split(",")] if tags.strip() else []
-
+    
+    if not any([title, author, url, tags, description]):
+        console.print(Panel("[yellow] Forneça pelo menos um campo.[/yellow]\n"))
+        return
+    
+    changes = []
+    if title: 
+        changes.append(f"Título: '{current['title']}' → '{title}'")
+    if author: 
+        changes.append(f"Autor: '{current['author']}' → '{author}'")
+    if url: 
+        changes.append(f"URL: '{current['url']}' → '{url}'")
+    if description: 
+        changes.append(f"Descrição: '{current['description']}' → '{description}'")
+    if tags is not None: 
+        changes.append(f"Tags: '{', '.join(current['tags'])}' → '{tags}'")
+    
+    if changes:
+        console.print(Panel("[yellow]Alterações:[/yellow]\n" + "\n".join(changes)))
+    
+    tags_list = [t.strip() for t in tags.split(",")] if tags and tags.strip() else (None if tags is None else [])
+    
     result = database.update_book(book_id, title, author, url, tags_list, description)
-    if result["success"]:
-        console.print(Panel(f" [green]{result['message']}[/green]"))
-    else:
-        console.print(Panel(f" [red]{result['message']}[/red]"))
+    style = "green" if result["success"] else "red"
+    console.print(Panel(f"[{style}]{result['message']}[/{style}]"))
 
 @cli.command(help = "Mostra informações detalhadas de um livro.")
 @click.argument("book_id", type = int)
@@ -184,11 +200,11 @@ def detail(book_id):
     created_at = book["created_at"]
 
     info_text = f"""[bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
-[bold cyan]Autor:[/bold cyan]  [bold white]{author}[/bold white]
-[bold cyan]URL:[/bold cyan]  [bold white]{url}[/bold white]
-[bold cyan]Tags:[/bold cyan]  [bold white]{tags}[/bold white]
-[bold cyan]Descrição:[/bold cyan]  [bold white]{description or "Nenhuma descrição"}[/bold white]
-[bold cyan]Adicionado em:[/bold cyan]  [bold white]{created_at}[/bold white]"""
+[bold cyan]Autor:[/bold cyan] [bold white]{author}[/bold white]
+[bold cyan]URL:[/bold cyan] [bold white]{url}[/bold white]
+[bold cyan]Tags:[/bold cyan] [bold white]{tags}[/bold white]
+[bold cyan]Descrição:[/bold cyan] [bold white]{description or "Nenhuma descrição"}[/bold white]
+[bold cyan]Adicionado em:[/bold cyan] [bold white]{created_at}[/bold white]"""
 
     console.print(Panel(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue", padding = (1, 2)))
 
