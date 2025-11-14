@@ -136,16 +136,15 @@ def book_count():
     except sqlite3.Error as e:
         raise Exception(f"Erro ao contar livros: {e}")
               
-def list_books(include_tags=True):
+def list_books():
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM books ORDER BY created_at DESC")
             books = [dict(row) for row in cursor.fetchall()]
 
-            if include_tags:
-                for book in books:
-                    book['tags'] = get_book_tags(book['id'])
+            for book in books:
+                book['tags'] = get_book_tags(book['id'])
             return books
     except sqlite3.Error as e:
         raise Exception(f"Erro ao listar livros: {e}")

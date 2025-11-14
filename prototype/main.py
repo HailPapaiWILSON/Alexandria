@@ -2,10 +2,8 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.table import Table
-from rich.text import Text
-import rich.box
 
+import utils
 import database
 
 console = Console()
@@ -13,42 +11,6 @@ console = Console()
 @click.group()
 def cli() -> None:
     database.create_tables()
-
-def create_rich_table(books: list[dict[str, str | int | list[str]]], table_title: str) -> Table:
-    table = Table(
-        title = table_title,
-        show_header = True,
-        header_style = "bold cyan",
-        title_style = "bold blue",
-        show_lines = True,
-        border_style = "blue",
-        padding = (0, 1),
-        box = rich.box.ROUNDED
-    )
-
-    table.add_column("ID", style="white", justify="center", no_wrap=True)
-    table.add_column("Titulo", style="white", justify="left", overflow="fold")
-    table.add_column("Autor", style="green", justify="left", overflow="ellipsis")
-    table.add_column("Tags", style="yellow", justify="left", overflow="ellipsis")
-    table.add_column("Data", style="cyan", justify="center", no_wrap=True)
-
-    for book in books:
-        book_id: int = book["id"]
-        title: str = book["title"]
-        author: str = book["author"]
-        url: str = book["url"]
-        tags: list[str] = book["tags"]
-        created_at: str = book["created_at"]
-
-        hyperlink: str = f"\033]8;;{url}\033\\{title}\033]8;;\033\\"
-
-        title_text: Text = Text.from_ansi(hyperlink)
-
-        tags_str: str = ", ".join(tags) if tags else "Sem Tags"
-        tags_text: Text = Text(tags_str)
-
-        table.add_row(str(book_id), title_text, author, tags_text, created_at)
-    return table
 
 @cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
 def add():
@@ -88,8 +50,8 @@ def list_books():
         return False
 
     books = database.list_books()
-    table_title = "B I B L I O T E C A"
-    table = create_rich_table(books, table_title)
+    table_title = f"B I B L I O T E C A - {total_books} livros"
+    table = utils.create_rich_table(books, table_title)
     console.print(table)
 
     return True
@@ -99,6 +61,7 @@ def list_books():
 @click.option("--force", "-f", is_flag = True, help = "Deleta sem confirmação")
 def delete(book_id: int, force: bool):
     book = database.get_book_details(book_id)
+    
     if not force:
         if click.confirm(f" Tem certeza que deseja deletar '{book['title']}' de {book['author']}?"):
             result = database.delete_book(book_id)
@@ -140,7 +103,7 @@ def search(term, title, author, tag):
         return
 
     table_title = f"RESULTADOS DE BUSCA POR {term} - ({len(books)}) em {search_label}"
-    table = create_rich_table(books, table_title)
+    table = utils.create_rich_table(books, table_title)
 
     console.print(table)
 
@@ -197,7 +160,7 @@ def detail(book_id):
     url = book["url"]
     tags = ", ".join(book["tags"]) if book.get("tags") else "Sem tags"
     description = book["description"]
-    created_at = book["created_at"]
+    created_at = utils.convert_date_format(book["created_at"])
 
     info_text = f"""[bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
 [bold cyan]Autor:[/bold cyan] [bold white]{author}[/bold white]
