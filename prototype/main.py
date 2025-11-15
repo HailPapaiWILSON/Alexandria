@@ -50,7 +50,7 @@ def list_books():
         return False
 
     books = database.list_books()
-    table_title = f"B I B L I O T E C A - {total_books} livros"
+    table_title = f"B I B L I O T E C A - {total_books} Livros"
     table = utils.create_rich_table(books, table_title)
     console.print(table)
 
