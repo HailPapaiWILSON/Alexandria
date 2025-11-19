@@ -8,7 +8,7 @@ console = Console()
 APP_NAME = "alexandria"
 DB_NAME = "alexandria.db"
 
-def get_path():
+def build_database_path():
     if os.name == "nt":
         app_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', APP_NAME)
     else:
@@ -18,9 +18,9 @@ def get_path():
     full_db_path = os.path.join(app_dir, DB_NAME)
     return full_db_path
 
-DB_PATH = get_path()
+DB_PATH = build_database_path()
 
-def get_db_connection():
+def connect_db():
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -31,7 +31,7 @@ def get_db_connection():
         raise
 
 def create_tables():
-    with get_db_connection() as conn:
+    with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS books (
@@ -61,7 +61,7 @@ def create_tables():
         )
         """)
 
-def check_duplicates(conn, title, author):
+def find_existing_book(conn, title, author):
     """Check for duplicates using existing connection"""
     try:
         cursor = conn.cursor()
@@ -74,11 +74,11 @@ def check_duplicates(conn, title, author):
     except sqlite3.Error as e:
         raise Exception(f"Erro ao verificar livros repetidos: {e}")
 
-def add_book(title, author, url, tags, description):
+def insert_book(title, author, url, tags, description):
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             # Check duplicates within the same connection
-            duplicate = check_duplicates(conn, title, author)
+            duplicate = find_existing_book(conn, title, author)
             if duplicate:
                 return {
                     "success": False,
@@ -97,7 +97,7 @@ def add_book(title, author, url, tags, description):
             if tags:
                 for tag in tags:
                     if tag.strip():
-                        tag_id = get_or_create_tag(conn, tag)
+                        tag_id = ensure_tag(conn, tag)
                         cursor.execute("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", (book_id, tag_id))
     
         return {
@@ -111,9 +111,9 @@ def add_book(title, author, url, tags, description):
             "message": f"Erro ao adicionar livro: {e}"
         }
 
-def get_book_tags(book_id):
+def fetch_tags_for(book_id):
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -127,31 +127,31 @@ def get_book_tags(book_id):
     except sqlite3.Error as e:
         raise Exception(f"Erro ao buscar tags do livro {book_id}: {e}")
 
-def book_count():
+def count_books():
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM books")
             return cursor.fetchone()[0]
     except sqlite3.Error as e:
         raise Exception(f"Erro ao contar livros: {e}")
               
-def list_books():
+def fetch_all_books():
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM books ORDER BY created_at DESC")
             books = [dict(row) for row in cursor.fetchall()]
 
             for book in books:
-                book['tags'] = get_book_tags(book['id'])
+                book['tags'] = fetch_tags_for(book['id'])
             return books
     except sqlite3.Error as e:
         raise Exception(f"Erro ao listar livros: {e}")
     
-def delete_book(book_id: int):
+def remove_book(book_id: int):
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()  
             cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
             affected = cursor.rowcount
@@ -173,7 +173,7 @@ def delete_book(book_id: int):
 
 def search_books(term: str, search_type="all"):
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()
             search_term = f"%{term}%"
             
@@ -205,28 +205,28 @@ def search_books(term: str, search_type="all"):
             books = [dict(row) for row in cursor.fetchall()]
             
             for book in books:
-                book['tags'] = get_book_tags(book['id'])
+                book['tags'] = fetch_tags_for(book['id'])
             
             return books
     except sqlite3.Error as e:
         raise Exception(f"Erro ao pesquisar livros: {e}")
 
-def get_book_details(book_id):
+def fetch_book(book_id):
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
             result = cursor.fetchone()
             
             if result:
                 book = dict(result)
-                book['tags'] = get_book_tags(book_id)
+                book['tags'] = fetch_tags_for(book_id)
                 return book
             return None
     except sqlite3.Error as e:
         raise Exception(f"Erro ao buscar detalhes do livro: {e}")
 
-def get_or_create_tag(conn, tag_name):
+def ensure_tag(conn, tag_name):
     cursor = conn.cursor()
     tag_name = tag_name.strip().lower()
 
@@ -239,9 +239,9 @@ def get_or_create_tag(conn, tag_name):
     cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
     return cursor.lastrowid
 
-def update_book(book_id, title, author, url, tags, description):
+def modify_book(book_id, title, author, url, tags, description):
     try:
-        with get_db_connection() as conn:
+        with connect_db() as conn:
             cursor = conn.cursor()
             
             updates = []
@@ -270,7 +270,7 @@ def update_book(book_id, title, author, url, tags, description):
                 
                 for tag in tags:
                     if tag.strip():
-                        tag_id = get_or_create_tag(conn, tag)
+                        tag_id = ensure_tag(conn, tag)
                         cursor.execute("""
                             INSERT INTO book_tags (book_id, tag_id)
                             VALUES (?, ?)

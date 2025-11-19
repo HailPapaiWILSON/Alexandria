@@ -35,7 +35,7 @@ def add():
     description = description if description.strip() else None
     tags = [tag.strip() for tag in tags_input.split(",")] if tags_input.strip() else []
 
-    result = database.add_book(name, author, url, tags, description)
+    result = database.insert_book(name, author, url, tags, description)
 
     if result["success"]:
         console.print(Panel(f"[green] {result['message']}[/green]"))
@@ -44,12 +44,12 @@ def add():
 
 @cli.command(name = "list", help = "Lista todos os livros na biblioteca.")
 def list_books():
-    total_books = database.book_count()
+    total_books = database.count_books()
     if total_books == 0:
         console.print(Panel("[yellow] Sua biblioteca está vazia.[/yellow]"))
         return False
 
-    books = database.list_books()
+    books = database.fetch_all_books()
     table_title = f"B I B L I O T E C A - {total_books} Livros"
     table = utils.create_rich_table(books, table_title)
     console.print(table)
@@ -60,17 +60,17 @@ def list_books():
 @click.argument("book_id", type = int)
 @click.option("--force", "-f", is_flag = True, help = "Deleta sem confirmação")
 def delete(book_id: int, force: bool):
-    book = database.get_book_details(book_id)
+    book = database.fetch_book(book_id)
     
     if not force:
         if click.confirm(f" Tem certeza que deseja deletar '{book['title']}' de {book['author']}?"):
-            result = database.delete_book(book_id)
+            result = database.remove_book(book_id)
             if result["success"]:
                 console.print(Panel(f"[green] {result['message']}[/green]"))
             else:
                 console.print(Panel(f"[red] {result['message']}[/red]"))
     else:
-        result = database.delete_book(book_id)
+        result = database.remove_book(book_id)
         if result["success"]:
             console.print(Panel(f"[green] {result['message']}[/green]"))
         else:
@@ -115,7 +115,7 @@ def search(term, title, author, tag):
 @click.option("--tags", "-g", help="Substitui tags")
 @click.option("--description", "-d", help="Nova descrição")
 def edit(book_id, title, author, url, tags, description):
-    current = database.get_book_details(book_id)
+    current = database.fetch_book(book_id)
     if not current:
         console.print(Panel(f"[red]❌ Livro ID {book_id} não encontrado.[/red]")) 
         return
@@ -141,14 +141,14 @@ def edit(book_id, title, author, url, tags, description):
     
     tags_list = [t.strip() for t in tags.split(",")] if tags and tags.strip() else (None if tags is None else [])
     
-    result = database.update_book(book_id, title, author, url, tags_list, description)
+    result = database.modify_book(book_id, title, author, url, tags_list, description)
     style = "green" if result["success"] else "red"
     console.print(Panel(f"[{style}]{result['message']}[/{style}]"))
 
 @cli.command(help = "Mostra informações detalhadas de um livro.")
 @click.argument("book_id", type = int)
 def detail(book_id):
-    book = database.get_book_details(book_id)
+    book = database.fetch_book(book_id)
 
     if not book:
         console.print(Panel(" [bold red]Livro não encontrado[/bold red]"))
