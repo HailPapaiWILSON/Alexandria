@@ -162,14 +162,32 @@ def detail(book_id):
     description = book["description"]
     created_at = utils.convert_date_format(book["created_at"])
 
+    progress = database.get_reading_progress(book_id)
+    progress_txt = f"Capitulo {progress["chapter"] or "N/A"}, Pagina {progress["page"] or "N/A"}" if progress else "Nenhum progresso registrado"
+
     info_text = f"""[bold cyan]Titulo:[/bold cyan] [bold white]{title}[/bold white]
 [bold cyan]Autor:[/bold cyan] [bold white]{author}[/bold white]
 [bold cyan]URL:[/bold cyan] [bold white]{url}[/bold white]
 [bold cyan]Tags:[/bold cyan] [bold white]{tags}[/bold white]
 [bold cyan]Descrição:[/bold cyan] [bold white]{description or "Nenhuma descrição"}[/bold white]
-[bold cyan]Adicionado em:[/bold cyan] [bold white]{created_at}[/bold white]"""
+[bold cyan]Adicionado em:[/bold cyan] [bold white]{created_at}[/bold white]
+[bold cyan]Progresso:[/bold cyan] [bold white]{progress_txt}[/bold white]"""
 
     console.print(Panel(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue", padding = (1, 2)))
+
+@cli.command(help = "Registra ou atualiza o progresso de leitura (capítulo e página).")
+@click.argument("book_id", type = int)
+@click.option("--chapter", "-c", type = int, help = "Capitulo atual")
+@click.option("--page", "-p", type = int, help = "Pagina atual")
+def progress(book_id, chapter, page):
+    book = database.fetch_book(book_id)
+    if not book:
+        console.print(Panel(f"[red]Livro '{book["title"]}' de {book["author"]} nao encontrado[/red]"))
+        return
+    result = database.update_reading_progress(book_id, chapter, page)
+    style = "green" if result["success"] else "red"
+    console.print(Panel(f"[{style}]{result['message']}[/{style}]"))
+
 
 def main():
     cli()

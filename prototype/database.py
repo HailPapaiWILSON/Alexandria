@@ -61,6 +61,15 @@ def create_tables():
         )
         """)
 
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reading_progress (
+            book_id INTEGER PRIMARY KEY,
+            chapter INTEGER,
+            page INTEGER,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+        )
+        """)
+
 def find_existing_book(conn, title, author):
     """Check for duplicates using existing connection"""
     try:
@@ -294,3 +303,41 @@ def modify_book(book_id, title, author, url, tags, description):
             "success": False,
             "message": f"Erro ao atualizar livro: {e}"
         }
+
+def update_reading_progress(book_id, chapter, page):
+    try:
+        with connect_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO reading_progress (book_id, chapter, page)
+                VALUES (?, ?, ?)
+                ON CONFLICT(book_id) DO UPDATE SET
+                    chapter = excluded.chapter,
+                    page = excluded.page;
+            """, (book_id, chapter, page))
+
+            return {
+                "success": True,
+                "message": "Progresso atualizado"
+            }
+    except sqlite3.Error as e:
+        return {
+            "success": False,
+            "message": f"Erro atualizando progresso: {e}"
+        }
+
+def get_reading_progress(book_id):
+    try:
+        with connect_db() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+            SELECT chapter, page
+            FROM reading_progress
+            WHERE book_id = ?
+            """, (book_id,))
+
+            result = cursor.fetchone()
+            return result
+    except sqlite3.Error as e:
+        raise Exception(f"Erro ao buscar progresso: {e}")
