@@ -254,7 +254,7 @@ def modify_book(book_id, title, author, url, tags, description):
             cursor = conn.cursor()
             
             updates = []
-            values = []
+            values  = []
             
             if title is not None:
                 updates.append("title = ?")
@@ -272,6 +272,8 @@ def modify_book(book_id, title, author, url, tags, description):
             if updates:
                 values.append(book_id)
                 query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
+                print(f"DEBUG ULTRA CACHORRO NUM 1: {query}")
+                print(f"DEBUG ULTRA CACHORRO NUM 2: {values}")
                 cursor.execute(query, tuple(values))
             
             if tags is not None:
