@@ -159,7 +159,7 @@ def detail(book_id):
     author = book["author"]
     url = book["url"]
     tags = ", ".join(book["tags"]) if book.get("tags") else "Sem tags"
-    description = book["description"]
+    description = book.get("description")
     created_at = utils.convert_date_format(book["created_at"])
 
     progress = database.get_reading_progress(book_id)
