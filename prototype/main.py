@@ -132,9 +132,9 @@ def edit(book_id, title, author, url, tags, description):
     if url: 
         changes.append(f"URL: '{current['url']}' → '{url}'")
     if description: 
-        changes.append(f"Descrição: '{current['description']}' → '{description}'")
+        changes.append(f"Descrição: '{current.get('description') or 'Nenhuma'}' → '{description}'")
     if tags is not None: 
-        changes.append(f"Tags: '{', '.join(current['tags'])}' → '{tags}'")
+        changes.append(f"Tags: '{', '.join(current.get('tags', [])) or 'Sem tags'}' → '{tags}'")
     
     if changes:
         console.print(Panel("[yellow]Alterações:[/yellow]\n" + "\n".join(changes)))
@@ -158,7 +158,7 @@ def detail(book_id):
     title = book["title"]
     author = book["author"]
     url = book["url"]
-    tags = ", ".join(book["tags"]) if book.get("tags") else "Sem tags"
+    tags = ", ".join(book["tags"]) if book.get("tags", []) else "Sem tags"
     description = book.get("description")
     created_at = utils.convert_date_format(book["created_at"])
 
