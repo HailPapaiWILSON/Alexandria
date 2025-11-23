@@ -272,8 +272,6 @@ def modify_book(book_id, title, author, url, tags, description):
             if updates:
                 values.append(book_id)
                 query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
-                print(f"DEBUG ULTRA CACHORRO NUM 1 - A query: {query}")
-                print(f"DEBUG ULTRA CACHORRO NUM 2 - Os valores mandados pra query: {values}")
                 cursor.execute(query, tuple(values))
             
             if tags is not None:
