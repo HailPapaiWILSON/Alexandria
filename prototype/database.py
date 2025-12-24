@@ -180,46 +180,6 @@ def remove_book(book_id: int):
         "success": False, 
         "message": f"Erro ao deletar livro: {e}"}
 
-def search_books(term: str, search_type="all"):
-    try:
-        with connect_db() as conn:
-            cursor = conn.cursor()
-            search_term = f"%{term}%"
-            
-            if search_type == "title":
-                cursor.execute("SELECT * FROM books WHERE title LIKE ? COLLATE NOCASE", (search_term,))
-            
-            elif search_type == "author":
-                cursor.execute("SELECT * FROM books WHERE author LIKE ? COLLATE NOCASE", (search_term,))
-                
-            elif search_type == "tag":
-                cursor.execute("""
-                    SELECT DISTINCT b.*
-                    FROM books b
-                    JOIN book_tags bt ON b.id = bt.book_id
-                    JOIN tags t ON bt.tag_id = t.id
-                    WHERE t.name LIKE ? COLLATE NOCASE
-                """, (search_term,))
-            else:
-                cursor.execute("""
-                    SELECT DISTINCT b.*
-                    FROM books b
-                    LEFT JOIN book_tags bt ON b.id = bt.book_id
-                    LEFT JOIN tags t ON bt.tag_id = t.id
-                    WHERE b.title LIKE ? COLLATE NOCASE
-                    OR b.author LIKE ? COLLATE NOCASE
-                    OR t.name LIKE ? COLLATE NOCASE
-                """, (search_term, search_term, search_term))
-            
-            books = [dict(row) for row in cursor.fetchall()]
-            
-            for book in books:
-                book['tags'] = fetch_tags_for(book['id'])
-            
-            return books
-    except sqlite3.Error as e:
-        raise Exception(f"Erro ao pesquisar livros: {e}")
-
 def fetch_book(book_id):
     try:
         with connect_db() as conn:
