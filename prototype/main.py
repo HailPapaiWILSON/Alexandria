@@ -1,6 +1,5 @@
 import click
 import subprocess
-import readline
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -16,8 +15,8 @@ def cli() -> None:
 
 @cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
 def add():
-    name = Prompt.ask("[bold white] Nome do livro[/bold white]")
-    if not name.strip():
+    title = Prompt.ask("[bold white] Nome do livro[/bold white]")
+    if not title.strip():
         console.print(Panel.fit("[bold red]O título não pode estar vazio.[/bold red]"))
         return
 
@@ -37,16 +36,16 @@ def add():
     description = description if description.strip() else None
     tags = utils.parse_tags(tags_input)
 
-    result = database.insert_book(name, author, url, tags, description)
+    result = database.insert_book(title, author, url, tags, description)
 
     if result["success"]:
         console.print(Panel.fit(f"[green]{result['message']}[/green]"))
     else:
         console.print(Panel.fit(f"[red]{result['message']}[/red]"))
 
-@cli.command(name = "delete", help = "Deleta um livro da biblioteca usando seu ID.")
+@cli.command(help= "Deleta um livro da biblioteca usando seu ID.")
 @click.argument("book_id", type=int, required=False)
-@click.option("--force", "-f", is_flag= True, help="Deleta sem confirmação")
+@click.option("--force", "-f", is_flag=True, help="Deleta sem confirmação")
 def delete(book_id: int, force: bool):
     book_id = select_book(prompt="Deletar > ")
     if not book_id:
@@ -68,16 +67,10 @@ def delete(book_id: int, force: bool):
         else:
             console.print(Panel.fit(f"[red]{result['message']}[/red]"))
 
-
 @cli.command(help="Atualiza informações de um livro existente.")
 @click.argument("book_id", type=int, required=False)
-@click.option("--title", "-t", help="Novo título")
-@click.option("--author", "-a", help="Novo autor")
-@click.option("--url", "-u", help="Novo URL")
-@click.option("--tags", "-g", help="Substitui tags")
-@click.option("--description", "-d", help="Nova descrição")
-def edit(book_id, title, author, url, tags, description):
-    book_id = select_book(prompt="Deletar > ")
+def edit(book_id):
+    book_id = select_book(prompt="Editar > ")
     if not book_id:
         return
 
@@ -85,52 +78,30 @@ def edit(book_id, title, author, url, tags, description):
     console.print(Panel.fit(f"[cyan]Editando: {current['title']} - {current['author']}[/cyan]"))
     console.print("[dim]Edite o texto ou pressione Enter para manter[/dim]\n")
 
-    readline.set_startup_hook(lambda: readline.insert_text(current['title']))
-    try:
-        title = Prompt.ask("[bold white] Titulo[/]", show_default=False)
-    finally:
-        readline.set_startup_hook()
-
-    readline.set_startup_hook(lambda: readline.insert_text(current['author']))
-    try:
-        author = Prompt.ask("[bold white] Autor[/]", show_default=False)
-    finally:
-        readline.set_startup_hook()
-
-    readline.set_startup_hook(lambda: readline.insert_text(current['url']))
-    try:
-        url = Prompt.ask("[bold white] URL[/]", show_default=False)
-    finally:
-        readline.set_startup_hook()
-
-    current_tags = ", ".join(current.get('tags', []))
-    readline.set_startup_hook(lambda: readline.insert_text(current_tags))
-    try:
-        tags_input = Prompt.ask("[bold white] Tags[/]", show_default=False)
-    finally:
-        readline.set_startup_hook()
+    new_title = utils.prefill_prompt("Titulo", current['title'])
+    new_author = utils.prefill_prompt("Autor", current['author'])
+    new_url = utils.prefill_prompt("URL", current['url'])
+    
+    current_tags = utils.format_tags(current.get('tags', []))
+    tags_input = utils.prefill_prompt("Tags", current_tags)
 
     current_description = current.get('description', '')
-    readline.set_startup_hook(lambda: readline.insert_text(current_description))
-    try:
-        description = Prompt.ask("[bold white] Descriçao[/]", show_default=False)
-    finally:
-        readline.set_startup_hook()
-
+    new_description = utils.prefill_prompt("Descriçao", current_description)
+    
     changes = []
-    if title != current['title']: 
-        changes.append(f"Título: '{current['title']}' → '{title}'")
-    if author != current['author']: 
-        changes.append(f"Autor: '{current['author']}' → '{author}'")
-    if url != current['url']: 
-        changes.append(f"URL: '{current['url']}' → '{url}'")
-    if description != current['description']:
-        changes.append(f"Descrição: '{current.get('description') or 'Nenhuma'}' → '{description}'")
+    if new_title != current['title']: 
+        changes.append(f"Título: '{current['title']}' → '{new_title}'")
+    if new_author != current['author']: 
+        changes.append(f"Autor: '{current['author']}' → '{new_author}'")
+    if new_url != current['url']: 
+        changes.append(f"URL: '{current['url']}' → '{new_url}'")
+    if new_description != current['description']:
+        changes.append(f"Descrição: '{current.get('description') or 'Nenhuma'}' → '{new_description}'")
 
-    tags_list = utils.parse_tags(tags_input)
+    new_tags_list = utils.parse_tags(tags_input)
 
-    if tags_list != current['tags']: 
-        changes.append(f"Tags: '{', '.join(current.get('tags', [])) or 'Sem tags'}' → '{tags}'")
+    if new_tags_list != current['tags']: 
+        changes.append(f"Tags: '{utils.format_tags(current.get('tags', []))}' → '{utils.format_tags(new_tags_list)}'")
     
     if changes:
         console.print(Panel.fit("[yellow]Alterações:[/yellow]\n" + "\n".join(changes)))
@@ -138,7 +109,7 @@ def edit(book_id, title, author, url, tags, description):
         console.print(Panel.fit("[dim]Nenhuma alteraçao realizada[/]"))
         return
 
-    update_result = database.modify_book(book_id, title, author, url, tags_list, description)
+    update_result = database.modify_book(book_id, new_title, new_author, new_url, new_tags_list, new_description)
     
 @cli.command(help="Mostra informações detalhadas de um livro")
 @click.argument("book_id", type=int, required=False)
@@ -158,7 +129,7 @@ def find(book_id):
     title = book["title"]
     author = book["author"]
     url = book["url"]
-    tags = ", ".join(book["tags"]) if book.get("tags", []) else "Sem tags"
+    tags = utils.format_tags(book['tags'])
     description = book.get("description")
     created_at = utils.convert_date_format(book["created_at"])
 
@@ -175,10 +146,10 @@ def find(book_id):
 
     console.print(Panel.fit(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue", padding = (1, 2)))
 
-@cli.command(help = "Registra ou atualiza o progresso de leitura (capítulo e página).")
-@click.argument("book_id", type = int)
-@click.option("--chapter", "-c", type = int, help = "Capitulo atual")
-@click.option("--page", "-p", type = int, help = "Pagina atual")
+@cli.command(help="Registra ou atualiza o progresso de leitura (capítulo e página).")
+@click.argument("book_id", type=int)
+@click.option("--chapter", "-c", type=int, help="Capitulo atual")
+@click.option("--page", "-p", type=int, help="Pagina atual")
 def progress(book_id, chapter, page):
     book = database.fetch_book(book_id)
     if not book:
@@ -199,7 +170,7 @@ def select_book(prompt):
     book_map = {}
 
     for book in books:
-        tags_str = ", ".join(book['tags']) if book['tags'] else "Sem tags"
+        tags_str = utils.format_tags(book['tags'])
         line = f"{book['title']} | {book['author']}"
         book_map[line] = book['id']
 
