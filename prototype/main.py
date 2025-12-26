@@ -147,14 +147,27 @@ def find(book_id):
     console.print(Panel.fit(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue", padding = (1, 2)))
 
 @cli.command(help="Registra ou atualiza o progresso de leitura (capítulo e página).")
-@click.argument("book_id", type=int)
-@click.option("--chapter", "-c", type=int, help="Capitulo atual")
-@click.option("--page", "-p", type=int, help="Pagina atual")
-def progress(book_id, chapter, page):
-    book = database.fetch_book(book_id)
-    if not book:
-        console.print(Panel.fit(f"[red]Livro '{book["title"]}' de {book["author"]} nao encontrado[/red]"))
+@click.argument("book_id", type=int, required=False)
+def progress(book_id):
+    book_id = select_book('Progresso > ')
+    if not book_id:
         return
+    
+    book = database.fetch_book(book_id)
+    
+    console.print(Panel.fit(f"[cyan]Atualizando progresso: {book['title']} - {book['author']}[/]"))
+    console.print('[dim]Edite ou pressione Enter para manter[/]')
+
+    current_progress = database.get_reading_progress(book_id)
+    current_chap = str(current_progress['chapter']) if current_progress and current_progress['chapter'] else ""
+    current_page = str(current_progress['page']) if current_progress and current_progress['page'] else ""
+    
+    new_chapter = utils.prefill_prompt("Capitulo", current_chap)
+    new_page = utils.prefill_prompt("Pagina", current_page)
+
+    chapter = int(new_chapter) if new_chapter.strip() else None
+    page = int(new_page) if new_page.strip() else None
+
     result = database.update_reading_progress(book_id, chapter, page)
     style = "green" if result["success"] else "red"
     console.print(Panel.fit(f"[{style}]{result['message']}[/{style}]"))
