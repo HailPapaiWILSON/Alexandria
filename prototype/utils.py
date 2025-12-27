@@ -1,7 +1,6 @@
 from datetime import datetime
-from rich.prompt import Prompt
 import readline
-
+from rich.panel import Panel
 
 def convert_date_format(date_str):
     formated: str = datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -13,9 +12,6 @@ def parse_tags(input_tags):
 
     stripped_tags = input_tags.strip()
 
-    if not stripped_tags:
-        return []
-    
     split_tags = stripped_tags.split(',')
 
     result_tags = []
@@ -36,7 +32,12 @@ def format_tags(tags_list):
 def prefill_prompt(label, prefilled_text):
     readline.set_startup_hook(lambda: readline.insert_text(prefilled_text))
     try:
-        return Prompt.ask(f"[bold white] {label}[/]", show_default=False)
+        return input(f"\033[1m {label}: \033[0m")
     finally:
         readline.set_startup_hook()
 
+def print_result(result, console):
+    if result['success']:
+        console.print(Panel.fit(f"[green]{result['message']}[/]"))
+    else:
+        console.print(Panel.fit(f"[red]{result['message']}[/]"))

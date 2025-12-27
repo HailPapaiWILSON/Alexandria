@@ -1,9 +1,5 @@
 import sqlite3
 import os
-from rich.console import Console
-from rich.panel import Panel
-
-console = Console()
 
 APP_NAME = "alexandria"
 DB_NAME = "alexandria.db"
@@ -27,7 +23,7 @@ def connect_db():
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
     except sqlite3.Error as e:
-        console.print(Panel(f"[bold red] Erro ao conectar ao banco de dados: {e}[/bold red]"))
+        raise sqlite3.Error(f"Erro ao conectar ao banco de dados: {e}")
         raise
 
 def create_tables():
@@ -70,8 +66,7 @@ def create_tables():
         )
         """)
 
-def find_existing_book(conn, title, author):
-    """Check for duplicates using existing connection"""
+def find_duplicate_book(conn, title, author):
     try:
         cursor = conn.cursor()
         cursor.execute("""
@@ -87,13 +82,12 @@ def insert_book(title, author, url, tags, description):
     try:
         with connect_db() as conn:
             # Check duplicates within the same connection
-            duplicate = find_existing_book(conn, title, author)
+            duplicate = find_duplicate_book(conn, title, author)
             if duplicate:
                 return {
                     "success": False,
                     "message": "Livro já esta armazenado",
                     "duplicate": True,
-                    "book_id": duplicate['id']
                 }
             
             cursor = conn.cursor()
@@ -112,7 +106,6 @@ def insert_book(title, author, url, tags, description):
         return {
             "success": True,
             "message": f"'{title}' por '{author}' salvo com sucesso",
-            "book_id": book_id
         }
     except sqlite3.Error as e:
         return {
@@ -136,15 +129,6 @@ def fetch_tags_for(book_id):
     except sqlite3.Error as e:
         raise Exception(f"Erro ao buscar tags do livro {book_id}: {e}")
 
-def count_books():
-    try:
-        with connect_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM books")
-            return cursor.fetchone()[0]
-    except sqlite3.Error as e:
-        raise Exception(f"Erro ao contar livros: {e}")
-              
 def fetch_all_books():
     try:
         with connect_db() as conn:
@@ -213,6 +197,13 @@ def modify_book(book_id, title, author, url, tags, description):
         with connect_db() as conn:
             cursor = conn.cursor()
             
+            cursor.execute("SELECT id FROM books WHERE id = ?", (book_id,))
+            if not cursor.fetchone():
+                return {
+                    "success": False,
+                    "message": "Livro não encontrado"
+                }
+            
             updates = []
             values  = []
             
@@ -245,25 +236,16 @@ def modify_book(book_id, title, author, url, tags, description):
                             VALUES (?, ?)
                         """, (book_id, tag_id))
             
-            affected = cursor.rowcount if not updates else 1
-            
-            if affected == 0 and not tags:
-                return {
-                    "success": False,
-                    "message": "Livro não encontrado"
-                }
-            else:
-                return {
-                    "success": True,
-                    "message": f"{book_id} atualizado com sucesso"
-                }
+            return {
+                "success": True,
+                "message": f"Livro atualizado com sucesso"
+            }
                 
     except sqlite3.Error as e:
         return {
             "success": False,
             "message": f"Erro ao atualizar livro: {e}"
         }
-
 def update_reading_progress(book_id, chapter, page):
     try:
         with connect_db() as conn:

@@ -1,11 +1,11 @@
 import click
 import subprocess
+import utils
+import database
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-
-import utils
-import database
 
 console = Console()
 
@@ -15,7 +15,7 @@ def cli() -> None:
 
 @cli.command(help="Adiciona um novo livro (título, autor, URL) à biblioteca.")
 def add():
-    title = Prompt.ask("[bold white] Nome do livro[/bold white]")
+    title = Prompt.ask("[bold white] Titulo[/bold white]")
     if not title.strip():
         console.print(Panel.fit("[bold red]O título não pode estar vazio.[/bold red]"))
         return
@@ -33,20 +33,16 @@ def add():
     tags_input = Prompt.ask("[bold white] Tags (separadas por vírgula)[/bold white]")
     description = Prompt.ask("[bold white] Descrição[/bold white]")
 
-    description = description if description.strip() else None
+    description = description.strip() or None
     tags = utils.parse_tags(tags_input)
 
     result = database.insert_book(title, author, url, tags, description)
 
-    if result["success"]:
-        console.print(Panel.fit(f"[green]{result['message']}[/green]"))
-    else:
-        console.print(Panel.fit(f"[red]{result['message']}[/red]"))
+    utils.print_result(result, console)
 
 @cli.command(help= "Deleta um livro da biblioteca usando seu ID.")
-@click.argument("book_id", type=int, required=False)
 @click.option("--force", "-f", is_flag=True, help="Deleta sem confirmação")
-def delete(book_id: int, force: bool):
+def delete(force: bool):
     book_id = select_book(prompt="Deletar > ")
     if not book_id:
         return
@@ -56,20 +52,13 @@ def delete(book_id: int, force: bool):
     if not force:
         if click.confirm(f"Tem certeza que deseja deletar '{book['title']}' de {book['author']}?"):
             result = database.remove_book(book_id)
-            if result["success"]:
-                console.print(Panel.fit(f"[green]{result['message']}[/green]"))
-            else:
-                console.print(Panel.fit(f"[red]{result['message']}[/red]"))
+            utils.print_result(result, console)
     else:
         result = database.remove_book(book_id)
-        if result["success"]:
-            console.print(Panel.fit(f"[green]{result['message']}[/green]"))
-        else:
-            console.print(Panel.fit(f"[red]{result['message']}[/red]"))
+        utils.print_result(result, console)
 
 @cli.command(help="Atualiza informações de um livro existente.")
-@click.argument("book_id", type=int, required=False)
-def edit(book_id):
+def edit():
     book_id = select_book(prompt="Editar > ")
     if not book_id:
         return
@@ -110,10 +99,11 @@ def edit(book_id):
         return
 
     update_result = database.modify_book(book_id, new_title, new_author, new_url, new_tags_list, new_description)
-    
+
+    utils.print_result(update_result, console)
+
 @cli.command(help="Mostra informações detalhadas de um livro")
-@click.argument("book_id", type=int, required=False)
-def find(book_id):
+def find():
     book_id = select_book(prompt="Livro > ")
 
     if not book_id:
@@ -147,9 +137,8 @@ def find(book_id):
     console.print(Panel.fit(info_text, title = f"[bold]ID - {book_id}[/bold]", border_style = "blue", padding = (1, 2)))
 
 @cli.command(help="Registra ou atualiza o progresso de leitura (capítulo e página).")
-@click.argument("book_id", type=int, required=False)
-def progress(book_id):
-    book_id = select_book('Progresso > ')
+def progress():
+    book_id = select_book(prompt="Progresso > ")
     if not book_id:
         return
     
@@ -169,8 +158,7 @@ def progress(book_id):
     page = int(new_page) if new_page.strip() else None
 
     result = database.update_reading_progress(book_id, chapter, page)
-    style = "green" if result["success"] else "red"
-    console.print(Panel.fit(f"[{style}]{result['message']}[/{style}]"))
+    utils.print_result(result, console)
 
 def select_book(prompt):
     books = database.fetch_all_books()
