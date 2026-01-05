@@ -180,7 +180,7 @@ def select_book(prompt):
     fzf_input = "\n".join(lines)
     
     fzf_output = subprocess.run(
-        ['fzf', f'--prompt={prompt}'],
+        ['fzf', f'--prompt={prompt}', '--height=40%', '--layout=reverse', '--border'],
         input = fzf_input,
         text=True,
         capture_output=True
