@@ -136,10 +136,10 @@ def modify_book(book_id, title, author, url, tags, description):
             values.append(url)
         if tags is not None:
             updates.append("tags = ?")
-            values.append(tags)
+            values.append(tags or None)
         if description is not None:
             updates.append("description = ?")
-            values.append(description)
+            values.append(description or None)
         
         if updates:
             values.append(book_id)

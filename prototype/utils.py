@@ -11,7 +11,7 @@ def convert_date_format(date_str):
 def prefill_prompt(label, prefilled_text):
     readline.set_startup_hook(lambda: readline.insert_text(prefilled_text))
     try:
-        return input(f"\033[1m {label}: \033[0m")
+        return input(f"\001\033[1m\002 {label}: \001\033[0m\002")
     finally:
         readline.set_startup_hook()
 

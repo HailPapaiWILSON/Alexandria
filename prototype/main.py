@@ -107,7 +107,7 @@ def edit():
 
     update_result = database.modify_book(
             book_id, new_title, new_author, new_url,
-            new_tags.strip() or None, new_description.strip() or None
+            new_tags.strip(), new_description.strip()
     )
 
     utils.print_result(update_result, console)
