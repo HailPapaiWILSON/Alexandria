@@ -11,9 +11,9 @@ def build_database_path():
     home = Path.home()
 
     if os.name == "nt":
-        app_dir = home / 'AppData' / APP_NAME
+        app_dir = home / "AppData" / APP_NAME
     else:
-        app_dir = home / '.local' / APP_NAME
+        app_dir = home / ".local" / APP_NAME
 
     app_dir.mkdir(parents=True, exist_ok=True)
 
@@ -36,7 +36,8 @@ def connect_db():
 def create_tables():
     with connect_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS books (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
@@ -46,25 +47,31 @@ def create_tables():
             description TEXT,
             created_at TEXT DEFAULT (date('now', 'localtime'))
         )
-        """)
+        """
+        )
 
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS reading_progress (
             book_id INTEGER PRIMARY KEY,
             chapter INTEGER,
             page INTEGER,
             FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
         )
-        """)
+        """
+        )
 
 
 def find_duplicate_book(conn, title, author):
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT * FROM books
         WHERE title = ? COLLATE NOCASE
         AND author = ? COLLATE NOCASE
-                   """, (title, author))
+                   """,
+        (title, author),
+    )
 
     return cursor.fetchone()
 
@@ -73,15 +80,22 @@ def insert_book(title, author, url, tags, description):
     with connect_db() as conn:
         duplicate = find_duplicate_book(conn, title, author)
         if duplicate:
-            return { "success": False, "message": "Livro já esta armazenado", "duplicate": True }
-        
+            return {
+                "success": False,
+                "message": "Livro já esta armazenado",
+                "duplicate": True,
+            }
+
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO books (title, author, url, tags, description)
             VALUES (?, ?, ?, ?, ?)   
-        """, (title, author, url, tags, description))
+        """,
+            (title, author, url, tags, description),
+        )
 
-    return { "success": True, "message": f"'{title}' por '{author}' salvo com sucesso" }
+    return {"success": True, "message": f"'{title}' por '{author}' salvo com sucesso"}
 
 
 def fetch_all_books():
@@ -94,14 +108,14 @@ def fetch_all_books():
 
 def remove_book(book_id: int):
     with connect_db() as conn:
-        cursor = conn.cursor()  
+        cursor = conn.cursor()
         cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
         affected = cursor.rowcount
-    
-    if affected == 0:
-        return { "success": False, "message": "Livro não encontrado" }
 
-    return { "success": True, "message": "Livro deletado com sucesso" }
+    if affected == 0:
+        return {"success": False, "message": "Livro não encontrado"}
+
+    return {"success": True, "message": "Livro deletado com sucesso"}
 
 
 def fetch_book(book_id):
@@ -116,15 +130,15 @@ def fetch_book(book_id):
 def modify_book(book_id, title, author, url, tags, description):
     with connect_db() as conn:
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT id FROM books WHERE id = ?", (book_id,))
 
         if not cursor.fetchone():
-            return { "success": False, "message": "Livro não encontrado" }
-        
+            return {"success": False, "message": "Livro não encontrado"}
+
         updates = []
         values = []
-        
+
         if title is not None:
             updates.append("title = ?")
             values.append(title)
@@ -140,37 +154,43 @@ def modify_book(book_id, title, author, url, tags, description):
         if description is not None:
             updates.append("description = ?")
             values.append(description or None)
-        
+
         if updates:
             values.append(book_id)
             query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
             cursor.execute(query, tuple(values))
-        
-        return { "success": True, "message": f"Livro atualizado com sucesso" }
+
+        return {"success": True, "message": f"Livro atualizado com sucesso"}
 
 
 def update_reading_progress(book_id, chapter, page):
     with connect_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO reading_progress (book_id, chapter, page)
             VALUES (?, ?, ?)
             ON CONFLICT(book_id) DO UPDATE SET
                 chapter = excluded.chapter,
                 page = excluded.page;
-        """, (book_id, chapter, page))
+        """,
+            (book_id, chapter, page),
+        )
 
-        return { "success": True, "message": "Progresso atualizado" }
+        return {"success": True, "message": "Progresso atualizado"}
 
 
 def get_reading_progress(book_id):
     with connect_db() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
         SELECT chapter, page
         FROM reading_progress
         WHERE book_id = ?
-        """, (book_id,))
+        """,
+            (book_id,),
+        )
 
         return cursor.fetchone()
