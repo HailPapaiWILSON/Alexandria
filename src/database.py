@@ -7,7 +7,7 @@ APP_NAME = "alexandria"
 DB_NAME = "alexandria.db"
 
 
-def build_database_path():
+def build_database_path() -> str:
     home = Path.home()
 
     if os.name == "nt":
@@ -25,7 +25,7 @@ def build_database_path():
 DB_PATH = build_database_path()
 
 
-def connect_db():
+def connect_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -33,7 +33,7 @@ def connect_db():
     return conn
 
 
-def create_tables():
+def create_tables() -> None:
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -62,7 +62,7 @@ def create_tables():
         )
 
 
-def find_duplicate_book(conn, title, author):
+def find_duplicate_book(conn, title, author) -> sqlite3.Row | None:
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -76,7 +76,7 @@ def find_duplicate_book(conn, title, author):
     return cursor.fetchone()
 
 
-def insert_book(title, author, url, tags, description):
+def insert_book(title, author, url, tags, description) -> dict:
     with connect_db() as conn:
         duplicate = find_duplicate_book(conn, title, author)
         if duplicate:
@@ -90,15 +90,18 @@ def insert_book(title, author, url, tags, description):
         cursor.execute(
             """
             INSERT INTO books (title, author, url, tags, description)
-            VALUES (?, ?, ?, ?, ?)   
+            VALUES (?, ?, ?, ?, ?)
         """,
             (title, author, url, tags, description),
         )
 
-    return {"success": True, "message": f"'{title}' por '{author}' salvo com sucesso"}
+    return {
+        "success": True,
+        "message": f"'{title}' por '{author}' salvo com sucesso",
+    }
 
 
-def fetch_all_books():
+def fetch_all_books() -> list[dict]:
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM books ORDER BY created_at DESC")
@@ -106,19 +109,25 @@ def fetch_all_books():
         return [dict(row) for row in cursor.fetchall()]
 
 
-def remove_book(book_id: int):
+def remove_book(book_id) -> dict:
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
         affected = cursor.rowcount
 
     if affected == 0:
-        return {"success": False, "message": "Livro não encontrado"}
+        return {
+            "success": False,
+            "message": "Livro não encontrado",
+        }
 
-    return {"success": True, "message": "Livro deletado com sucesso"}
+    return {
+        "success": True,
+        "message": "Livro deletado com sucesso",
+    }
 
 
-def fetch_book(book_id):
+def fetch_book(book_id) -> dict | None:
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
@@ -127,14 +136,17 @@ def fetch_book(book_id):
         return dict(result) if result else None
 
 
-def modify_book(book_id, title, author, url, tags, description):
+def modify_book(book_id, title, author, url, tags, description) -> dict:
     with connect_db() as conn:
         cursor = conn.cursor()
 
         cursor.execute("SELECT id FROM books WHERE id = ?", (book_id,))
 
         if not cursor.fetchone():
-            return {"success": False, "message": "Livro não encontrado"}
+            return {
+                "success": False,
+                "message": "Livro não encontrado"
+            }
 
         updates = []
         values = []
@@ -160,10 +172,13 @@ def modify_book(book_id, title, author, url, tags, description):
             query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
             cursor.execute(query, tuple(values))
 
-        return {"success": True, "message": f"Livro atualizado com sucesso"}
+        return {
+            "success": True,
+            "message": "Livro atualizado com sucesso",
+        }
 
 
-def update_reading_progress(book_id, chapter, page):
+def update_reading_progress(book_id, chapter, page) -> dict:
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -177,10 +192,13 @@ def update_reading_progress(book_id, chapter, page):
             (book_id, chapter, page),
         )
 
-        return {"success": True, "message": "Progresso atualizado"}
+        return {
+            "success": True,
+            "message": "Progresso atualizado"
+        }
 
 
-def get_reading_progress(book_id):
+def get_reading_progress(book_id) -> sqlite3.Row:
     with connect_db() as conn:
         cursor = conn.cursor()
 
