@@ -1,7 +1,8 @@
+from . import database, utils
+
+
 import typer
 import subprocess
-import utils
-import database
 
 
 from rich.console import Console
