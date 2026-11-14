@@ -22,25 +22,31 @@ def callback() -> None:
 
 
 @app.command()
-def add():
+def add() -> None:
     """Adiciona um novo livro (título, autor, URL) à biblioteca."""
 
     title = Prompt.ask("[bold white] Titulo[/bold white]")
 
     if not title.strip():
-        console.print(Panel.fit("[bold red]O título não pode estar vazio.[/bold red]"))
+        console.print(
+            Panel.fit("[bold red]O título não pode estar vazio.[/bold red]")
+        )
         return
 
     author = Prompt.ask("[bold white] Autor[/bold white]")
 
     if not author.strip():
-        console.print(Panel.fit("[bold red]O autor não pode estar vazio.[/bold red]"))
+        console.print(Panel.fit(
+            "[bold red]O autor não pode estar vazio.[/bold red]")
+        )
         return
 
     url = Prompt.ask("[bold white] URL[/bold white]")
 
     if not url.strip():
-        console.print(Panel.fit("[bold red]O URL não pode estar vazio.[/bold red]"))
+        console.print(Panel.fit(
+            "[bold red]O URL não pode estar vazio.[/bold red]")
+        )
         return
 
     tags = Prompt.ask("[bold white] Tags (separadas por vírgula)[/bold white]")
@@ -56,8 +62,10 @@ def add():
 
 @app.command()
 def delete(
-    force: bool = typer.Option(False, "--force", -"-f", help="Deleta sem confirmação")
-):
+    force: bool = typer.Option(
+        False, "--force", -"-f", help="Deleta sem confirmação"
+    )
+) -> None:
     """Deleta um livro da biblioteca usando seu ID."""
 
     book_id = select_book(prompt="Deletar > ")
@@ -69,7 +77,8 @@ def delete(
 
     if not force:
         if typer.confirm(
-            f"Tem certeza que deseja deletar '{book['title']}' de {book['author']}?"
+            "Tem certeza que deseja deletar "
+            f"'{book['title']}' de {book['author']}?"
         ):
             result = database.remove_book(book_id)
             utils.print_result(result, console)
@@ -79,7 +88,7 @@ def delete(
 
 
 @app.command()
-def edit():
+def edit() -> None:
     """Atualiza informações de um livro existente."""
 
     book_id = select_book(prompt="Editar > ")
@@ -90,7 +99,9 @@ def edit():
     current = database.fetch_book(book_id)
 
     console.print(
-        Panel.fit(f"[cyan]Editando: {current['title']} - {current['author']}[/cyan]")
+        Panel.fit(
+            f"[cyan]Editando: {current['title']} - {current['author']}[/cyan]"
+        )
     )
     console.print("[dim]Edite o texto ou pressione Enter para manter[/dim]\n")
 
@@ -114,11 +125,14 @@ def edit():
         changes.append(f"Tags: '{current.get('tags') or ''}' → '{new_tags}'")
     if new_description != (current.get("description") or ""):
         changes.append(
-            f"Descrição: '{current.get('description') or ''}' → '{new_description}'"
+            "Descrição: "
+            f"'{current.get('description') or ''}' → '{new_description}'"
         )
 
     if changes:
-        console.print(Panel.fit("[yellow]Alterações:[/yellow]\n" + "\n".join(changes)))
+        console.print(Panel.fit(
+            "[yellow]Alterações:[/yellow]\n" + "\n".join(changes))
+        )
     else:
         console.print(Panel.fit("[dim]Nenhuma alteraçao realizada[/]"))
         return
@@ -136,7 +150,7 @@ def edit():
 
 
 @app.command()
-def find():
+def find() -> None:
     """Mostra informações detalhadas de um livro."""
 
     book_id = select_book(prompt="Livro > ")
@@ -168,10 +182,11 @@ def find():
     progress_table.add_column("Página", style="bold cyan", justify="center")
 
     if progress:
-        progress_table.add_row(
-            str(progress["chapter"]) if progress["chapter"] else "[dim]—[/dim]",
-            str(progress["page"]) if progress["page"] else "[dim]—[/dim]",
+        chapter = (
+            str(progress["chapter"]) if progress["chapter"] else "[dim]—[/dim]"
         )
+        page = str(progress["page"]) if progress["page"] else "[dim]—[/dim]"
+        progress_table.add_row(chapter, page)
     else:
         progress_table.add_row("[dim]—[/dim]", "[dim]—[/dim]")
 
@@ -186,7 +201,7 @@ def find():
 
 
 @app.command()
-def progress():
+def progress() -> None:
     """Registra ou atualiza o progresso de leitura (capítulo e página)."""
 
     book_id = select_book(prompt="Progresso > ")
@@ -196,7 +211,10 @@ def progress():
     book = database.fetch_book(book_id)
 
     console.print(
-        Panel.fit(f"[cyan]Atualizando progresso: {book['title']} - {book['author']}[/]")
+        Panel.fit(
+            "[cyan]Atualizando progresso[/cyan]: "
+            f"[cyan]{book['title']} - {book['author']}[/cyan]"
+        )
     )
     console.print("[dim]Edite ou pressione Enter para manter[/]")
 
@@ -222,7 +240,7 @@ def progress():
     utils.print_result(result, console)
 
 
-def select_book(prompt: str) -> Optional[int]:
+def select_book(prompt) -> int | None:
     books = database.fetch_all_books()
 
     if not books:
@@ -241,7 +259,13 @@ def select_book(prompt: str) -> Optional[int]:
     fzf_input = "\n".join(lines)
 
     fzf_output = subprocess.run(
-        ["fzf", f"--prompt={prompt}", "--height=40%", "--layout=reverse", "--border"],
+        [
+            "fzf",
+            f"--prompt={prompt}",
+            "--height=40%",
+            "--layout=reverse",
+            "--border",
+        ],
         input=fzf_input,
         text=True,
         capture_output=True,
