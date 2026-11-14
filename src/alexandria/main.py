@@ -64,7 +64,7 @@ def add() -> None:
 @app.command()
 def delete(
     force: bool = typer.Option(
-        False, "--force", -"-f", help="Deleta sem confirmação"
+        False, "--force", "-f", help="Deleta sem confirmação"
     )
 ) -> None:
     """Deleta um livro da biblioteca usando seu ID."""
